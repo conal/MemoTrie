@@ -1,0 +1,33 @@
+Name:                MemoTrie
+Version:             0.0
+Cabal-Version:       >= 1.2
+Synopsis:            Trie-based memo functions
+Category:            Data
+Description:
+  MemoTrie provides a basis for memoized functions over some domains,
+  using tries.  It's based on some code I got from Spencer Janssen.
+  .
+  Project wiki page: <http://haskell.org/haskellwiki/MemoTrie>
+  .
+  The module documentation pages have links to colorized source code and
+  to wiki pages where you can read and contribute user comments.  Enjoy!
+  .
+  &#169; 2008 by Conal Elliott; BSD3 license.
+Author:              Conal Elliott 
+Maintainer:          conal@conal.net
+Homepage:            http://haskell.org/haskellwiki/MemoTrie
+Package-Url:         http://code.haskell.org/MemoTrie
+Copyright:           (c) 2008 by Conal Elliott
+License:             BSD3
+Stability:           experimental
+build-type:          Simple
+
+Library
+  hs-Source-Dirs:      src
+  Extensions:          
+  Build-Depends:       base
+  Exposed-Modules:     
+                     Data.MemoTrie
+  ghc-options:         -Wall
+
+--  ghc-prof-options:    -prof -auto-all 
