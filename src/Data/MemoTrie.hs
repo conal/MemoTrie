@@ -138,20 +138,27 @@ instance HasTrie Int where
 
 {-
 
-'untrie' is a 'Functor'-, 'Applicative'-, and 'Monoid'-morphism, i.e.,
+'untrie' is a morphism over 'Monoid', 'Functor', 'Applicative', and 'Monad':
+
+  untrie mempty          == mempty
+  untrie (s `mappend` t) == untrie s `mappend` untrie t
 
   untrie (fmap f t)      == fmap f (untrie t)
 
   untrie (pure a)        == pure a
   untrie (tf <*> tx)     == untrie tf <*> untrie tx
 
-  untrie mempty          == mempty
-  untrie (s `mappend` t) == untrie s `mappend` untrie t
+  untrie (return a)      == return a
+  untrie (u >>= k)       == untrie u >>= untrie . k
 
 The implementation instances then follow from applying 'trie' to both
 sides of each of these morphism laws.
 
 -}
+
+instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
+  mempty        = trie mempty
+  s `mappend` t = trie (untrie s `mappend` untrie t)
 
 instance HasTrie a => Functor ((:->:) a) where
   fmap f t      = trie (fmap f (untrie t))
@@ -160,6 +167,6 @@ instance HasTrie a => Applicative ((:->:) a) where
   pure b        = trie (pure b)
   tf <*> tx     = trie (untrie tf <*> untrie tx)
 
-instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
-  mempty        = trie mempty
-  s `mappend` t = trie (untrie s `mappend` untrie t)
+instance HasTrie a => Monad ((:->:) a) where
+  return a      = trie (return a)
+  u >>= k       = trie (untrie u >>= untrie . k)
