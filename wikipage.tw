@@ -5,7 +5,7 @@
 '''MemoTrie''' is functional library for creating efficient memo functions, using [http://en.wikipedia.org/wiki/Trie trie]s.  It's based on some code I got from Spencer Janssen and uses type families.
 
 Besides this wiki page, here are more ways to find out about MemoTrie:
-* Read [http://code.haskell.org/MemoTrie/doc/html/ the library documentation].  ''(Missing until haddock is ready for ghc-6.9.)''
+* Read [http://code.haskell.org/MemoTrie/doc/html/ the library documentation].
 * Get the code repository: '''<tt>darcs get http://code.haskell.org/MemoTrie</tt>'''.
 * Install from [http://hackage.haskell.org/cgi-bin/hackage-scripts/package/MemoTrie Hackage].
 * See the [[MemoTrie/Versions| version history]].
