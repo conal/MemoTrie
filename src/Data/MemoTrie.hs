@@ -81,7 +81,7 @@ instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
     untrie (PairTrie f) (a,b) = untrie (untrie f a) b
     trie f = PairTrie $ trie $ \a -> trie $ \b -> f (a,b)
 
-instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b, c) where
+instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c) where
     data (a,b,c) :->: x = TripleTrie (a :->: (b :->: (c :->: x)))
     untrie (TripleTrie f) (a,b,c) = untrie (untrie (untrie f a) b) c
     trie f = TripleTrie $
@@ -92,6 +92,9 @@ instance HasTrie x => HasTrie [x] where
     trie f = ListTrie (f []) $ trie (\x -> trie (f . (x:)))
     untrie (ListTrie n _) []     = n
     untrie (ListTrie _ t) (x:xs) = untrie (untrie t x) xs
+
+-- TODO: make these definitions more systematic.
+
 
 -- Handy for Bits types
 
