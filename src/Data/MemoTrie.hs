@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators #-}
-{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wall -frewrite-rules #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Data.MemoTrie
@@ -24,13 +24,14 @@ import Data.Word
 import Control.Applicative
 import Data.Monoid
 
--- Mapping from all elements of 'a' to the results of some function
+-- | Mapping from all elements of @a@ to the results of some function
 class HasTrie a where
+    -- | Representation of trie with domain type @a@
     data (:->:) a :: * -> *
-    -- create the trie
-    trie   :: (a -> b) -> (a :->: b)
-    -- access a field of the trie
-    untrie :: (a :->: b) -> (a -> b)
+    -- Create the trie for the entire domain of a function
+    trie   :: (a  ->  b) -> (a :->: b)
+    -- | Convert a trie to a function, i.e., access a field of the trie
+    untrie :: (a :->: b) -> (a  ->  b)
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
@@ -59,16 +60,16 @@ memo3 = mup memo2
 
 ---- Instances
 
+instance HasTrie () where
+    data () :->: a = UnitTrie a
+    trie f = UnitTrie (f ())
+    untrie (UnitTrie x) () = x
+
 instance HasTrie Bool where
     data Bool :->: a = BoolTrie a a
     trie f = BoolTrie (f False) (f True)
     untrie (BoolTrie f _) False = f
     untrie (BoolTrie _ t) True  = t
-
-instance HasTrie () where
-    data () :->: a = UnitTrie a
-    trie f = UnitTrie (f ())
-    untrie (UnitTrie x) () = x
 
 instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
     data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
@@ -141,7 +142,8 @@ instance HasTrie Int where
 
 {-
 
-'untrie' is a morphism over 'Monoid', 'Functor', 'Applicative', and 'Monad':
+The \"semantic function\" 'untrie' is a morphism over 'Monoid', 'Functor',
+'Applicative', and 'Monad', i.e.,
 
   untrie mempty          == mempty
   untrie (s `mappend` t) == untrie s `mappend` untrie t
@@ -154,8 +156,26 @@ instance HasTrie Int where
   untrie (return a)      == return a
   untrie (u >>= k)       == untrie u >>= untrie . k
 
+These morphism properties imply that all of the expected laws hold,
+assuming that we interpret equality semantically (or observationally).
+For instance,
+
+  untrie (mempty `mappend` a)
+    == untrie mempty `mappend` untrie a
+    == mempty `mappend` untrie a
+    == untrie a
+
+  untrie (fmap f (fmap g a))
+    == fmap f (untrie (fmap g a))
+    == fmap f (fmap g (untrie a))
+    == fmap (f.g) (untrie a)
+    == untrie (fmap (f.g) a)
+
 The implementation instances then follow from applying 'trie' to both
 sides of each of these morphism laws.
+
+Correctness of these instances follows by applying 'untrie' to each side
+of each definition and using the property @'untrie' . 'trie' == 'id'@.
 
 -}
 
