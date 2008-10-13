@@ -16,7 +16,7 @@
 module Data.MemoTrie
   ( HasTrie(..)
   , memo, memo2, memo3, mup
-  , trieBits, untrieBits
+  -- , untrieBits
   ) where
 
 import Data.Bits
@@ -73,26 +73,36 @@ instance HasTrie Bool where
 
 instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
     data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
-    untrie (EitherTrie f _) (Left  x) = untrie f x
-    untrie (EitherTrie _ g) (Right y) = untrie g y
+    untrie (EitherTrie f g) = either (untrie f) (untrie g)
     trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
 
 instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
     data (a,b) :->: x = PairTrie (a :->: (b :->: x))
-    untrie (PairTrie f) (a,b) = untrie (untrie f a) b
     trie f = PairTrie $ trie $ \a -> trie $ \b -> f (a,b)
+    untrie (PairTrie t) = uncurry (untrie .  untrie t)
+
+trip :: ((a,b),c) -> (a,b,c)
+trip ((a,b),c) = (a,b,c)
+
+detrip :: (a,b,c) -> ((a,b),c)
+detrip (a,b,c) = ((a,b),c)
 
 instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c) where
-    data (a,b,c) :->: x = TripleTrie (a :->: (b :->: (c :->: x)))
-    untrie (TripleTrie f) (a,b,c) = untrie (untrie (untrie f a) b) c
-    trie f = TripleTrie $
-      trie $ \a -> trie $ \b -> trie $ \ c -> f (a,b,c)
+    data (a,b,c) :->: x = TripleTrie (((a,b),c) :->: x)
+    trie f = TripleTrie (trie (f . trip))
+    untrie (TripleTrie t) = untrie t . detrip
+
+list :: Either () (x,[x]) -> [x]
+list = either (const []) (uncurry (:))
+
+delist :: [x] -> Either () (x,[x])
+delist []     = Left ()
+delist (x:xs) = Right (x,xs)
 
 instance HasTrie x => HasTrie [x] where
-    data [x] :->: a = ListTrie a (x :->: ([x] :->: a))
-    trie f = ListTrie (f []) $ trie (\x -> trie (f . (x:)))
-    untrie (ListTrie n _) []     = n
-    untrie (ListTrie _ t) (x:xs) = untrie (untrie t x) xs
+    data [x] :->: a = ListTrie (Either () (x,[x]) :->: a)
+    trie f = ListTrie (trie (f . list))
+    untrie (ListTrie t) = untrie t . delist
 
 -- TODO: make these definitions more systematic.
 
@@ -114,23 +124,15 @@ unbits :: Bits t => [Bool] -> t
 unbits [] = 0
 unbits (x:xs) = unbit x .|. shiftL (unbits xs) 1
 
--- | Handy for 'trie' in a bits-based 'Trie' instance
-trieBits :: Bits t => (t -> a) -> ([Bool] :->: a)
-trieBits f = trie (f . unbits)
-
--- | Handy for 'untrie' in a bits-based 'Trie' instance
-untrieBits :: Bits t => ([Bool] :->: a) -> (t -> a)
-untrieBits t x = untrie t (bits x)
-
 instance HasTrie Word where
     data Word :->: a = WordTrie ([Bool] :->: a)
-    untrie (WordTrie t) = untrieBits t
-    trie = WordTrie . trieBits
+    trie f = WordTrie (trie (f . unbits))
+    untrie (WordTrie t) = untrie t . bits
 
 -- Although Int is a Bits instance, we can't use bits directly for
 -- memoizing, because the "bits" function gives an infinite result, since
 -- shiftR (-1) 1 == -1.  Instead, convert between Int and Word, and use
--- a Word trie.
+-- a Word trie.  Any Integral type can be handled similarly.
 
 instance HasTrie Int where
     data Int :->: a = IntTrie (Word :->: a)
