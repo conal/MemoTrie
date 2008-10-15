@@ -66,7 +66,7 @@ memo3 = mup memo2
 instance HasTrie () where
     data () :->: a = UnitTrie a
     trie f = UnitTrie (f ())
-    untrie (UnitTrie x) () = x
+    untrie (UnitTrie x) = const x
 
 instance HasTrie Bool where
     data Bool :->: a = BoolTrie a a
@@ -76,12 +76,13 @@ instance HasTrie Bool where
 
 instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
     data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
-    untrie (EitherTrie f g) = either (untrie f) (untrie g)
     trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
+    untrie (EitherTrie f g) = either (untrie f) (untrie g)
 
 instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
     data (a,b) :->: x = PairTrie (a :->: (b :->: x))
     trie f = PairTrie $ trie $ \a -> trie $ \b -> f (a,b)
+    -- trie f = PairTrie $ trie (trie . curry f)
     untrie (PairTrie t) = uncurry (untrie .  untrie t)
 
 trip :: ((a,b),c) -> (a,b,c)
