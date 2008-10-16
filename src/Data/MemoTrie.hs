@@ -38,8 +38,11 @@ class HasTrie a where
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
-"untrie/trie"   forall f. untrie (trie f) = f
  #-}
+
+-- Don't include the dual rule:
+--   "untrie/trie"   forall f. untrie (trie f) = f
+-- which would defeat memoization.
 
 -- | Trie-based function memoizer
 memo :: HasTrie t => (t -> a) -> (t -> a)
