@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall -frewrite-rules #-}
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
--- supposed to be recognized
+-- supposed to be recognized in a RULES pragma.
 
 ----------------------------------------------------------------------
 -- |
@@ -27,6 +27,11 @@ import Data.Word
 import Control.Applicative
 import Data.Monoid
 
+-- import Prelude hiding (id,(.))
+-- import Control.Category
+-- import Control.Arrow
+
+
 -- | Mapping from all elements of @a@ to the results of some function
 class HasTrie a where
     -- | Representation of trie with domain type @a@
@@ -43,6 +48,9 @@ class HasTrie a where
 -- Don't include the dual rule:
 --   "untrie/trie"   forall f. untrie (trie f) = f
 -- which would defeat memoization.
+--
+-- TODO: experiment with rule application.  Maybe re-enable "untrie/trie"
+-- but fiddle with phases, so it won't defeat 'memo'.
 
 -- | Trie-based function memoizer
 memo :: HasTrie t => (t -> a) -> (t -> a)
@@ -71,15 +79,25 @@ instance HasTrie () where
     trie f = UnitTrie (f ())
     untrie (UnitTrie a) = const a
 
--- untrie (trie f)
---  == untrie (UnitTrie (f ()))                            -- trie def
---  == const (f ())                                        -- untrie def
---  == f                                                   -- const-unit
+-- Proofs of inverse properties:
 
--- trie (untrie (UnitTrie a))
---  == trie (const a)                                      -- untrie def
---  == UnitTrie (const a ())                               -- trie def
---  == UnitTrie a                                          -- const
+{-
+    untrie (trie f)
+      == { trie def }
+    untrie (UnitTrie (f ()))
+      == { untrie def }
+    const (f ())
+      == { const-unit }
+    f   
+
+    trie (untrie (UnitTrie a))
+      == { untrie def }
+    trie (const a)
+      == { trie def }
+    UnitTrie (const a ())
+      == { const }
+    UnitTrie a
+-}
 
 
 instance HasTrie Bool where
@@ -87,22 +105,29 @@ instance HasTrie Bool where
     trie f = BoolTrie (f False) (f True)
     untrie (BoolTrie f t) = if' f t
 
-
 -- | Conditional with boolean last.
 -- Spec: @if' (f False) (f True) == f@
 if' :: x -> x -> Bool -> x
 if' f _ False = f
 if' _ t True  = t
 
--- untrie (trie f)
---  == untrie (BoolTrie (f False) (f True))                -- trie def
---  == if' (f False) (f True)                              -- untrie def
---  == f                                                   -- if' spec
+{-
+    untrie (trie f)
+      == { trie def }
+    untrie (BoolTrie (f False) (f True))
+      == { untrie def }
+    if' (f False) (f True)
+      == { if' spec }
+    f
 
--- trie (untrie (BoolTrie f t))
---  == trie (if' f t)                                      -- untrie def
---  == BoolTrie (if' f t False) (if' f t True)             -- trie def
---  == BoolTrie f t                                        -- if' spec
+    trie (untrie (BoolTrie f t))
+      == { untrie def }
+    trie (if' f t)
+      == { trie def }
+    BoolTrie (if' f t False) (if' f t True)
+      == { if' spec }
+    BoolTrie f t
+-}
 
 
 instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
@@ -110,19 +135,28 @@ instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
     trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
     untrie (EitherTrie s t) = either (untrie s) (untrie t)
 
--- untrie (trie f)
---   == untrie (EitherTrie (trie (f . Left)) (trie (f . Right))) -- trie def
---   == either (untrie (trie (f . Left))) (untrie (trie (f . Right))) -- untrie def
---   == either (f . Left) (f . Right)                      -- untrie . trie
---   == f                                                  -- either
+{-
+    untrie (trie f)
+       == { trie def }
+    untrie (EitherTrie (trie (f . Left)) (trie (f . Right)))
+       == { untrie def }
+    either (untrie (trie (f . Left))) (untrie (trie (f . Right)))
+       == { untrie . trie }
+    either (f . Left) (f . Right)
+       == { either }
+    f
 
--- trie (untrie (EitherTrie s t))
---   == trie (either (untrie s) (untrie t))                -- untrie def
---   == EitherTrie (trie (either (untrie s) (untrie t) . Left)) -- trie def
---                 (trie (either (untrie s) (untrie t) . Right))
---   == EitherTrie (trie (untrie s)) (trie (untrie t))     -- either
---   == EitherTrie s t                                     -- trie . untrie
-
+    trie (untrie (EitherTrie s t))
+       == { untrie def }
+    trie (either (untrie s) (untrie t))
+       == { trie def }
+    EitherTrie (trie (either (untrie s) (untrie t) . Left))
+               (trie (either (untrie s) (untrie t) . Right))
+       == { either }
+    EitherTrie (trie (untrie s)) (trie (untrie t))
+       == { trie . untrie }
+    EitherTrie s t
+-}
 
 
 instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
@@ -130,20 +164,31 @@ instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
     trie f = PairTrie (trie (trie . curry f))
     untrie (PairTrie t) = uncurry (untrie .  untrie t)
 
--- untrie (trie f)
---  == untrie (PairTrie (trie (trie . curry f)))           -- trie def
---  == uncurry (untrie . untrie (trie (trie . curry f)))   -- untrie def
---  == uncurry (untrie . trie . curry f)                   -- untrie . trie
---  == uncurry (curry f)                                   -- untrie . untrie
---  == f                                                   -- uncurry . curry
+{-
+    untrie (trie f)
+      == { trie def }
+    untrie (PairTrie (trie (trie . curry f)))
+      == { untrie def }
+    uncurry (untrie . untrie (trie (trie . curry f)))
+      == { untrie . trie }
+    uncurry (untrie . trie . curry f)
+      == { untrie . untrie }
+    uncurry (curry f)
+      == { uncurry . curry }
+    f
 
--- trie (untrie (PairTrie t))
---  == trie (uncurry (untrie .  untrie t))                 -- untrie def
---  == PairTrie (trie (trie . curry (uncurry (untrie .  untrie t)))) -- trie def
---  == PairTrie (trie (trie . untrie .  untrie t))         -- curry . uncurry
---  == PairTrie (trie (untrie t))                          -- trie . untrie
---  == PairTrie t                                          -- trie . untrie
-
+    trie (untrie (PairTrie t))
+      == { untrie def }
+    trie (uncurry (untrie .  untrie t))
+      == { trie def }
+    PairTrie (trie (trie . curry (uncurry (untrie .  untrie t))))
+      == { curry . uncurry }
+    PairTrie (trie (trie . untrie .  untrie t))
+      == { trie . untrie }
+    PairTrie (trie (untrie t))
+      == { trie . untrie }
+    PairTrie t
+-}
 
 instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c) where
     data (a,b,c) :->: x = TripleTrie (((a,b),c) :->: x)
@@ -168,9 +213,6 @@ list = either (const []) (uncurry (:))
 delist :: [x] -> Either () (x,[x])
 delist []     = Left ()
 delist (x:xs) = Right (x,xs)
-
-
--- TODO: make these definitions more systematic.
 
 
 instance HasTrie Word where
@@ -205,12 +247,15 @@ instance HasTrie Int where
     trie f = IntTrie (trie (f . fromIntegral . toInteger))
 
 
+-- TODO: make these definitions more systematic.
+
+
 ---- Instances
 
 {-
 
 The \"semantic function\" 'untrie' is a morphism over 'Monoid', 'Functor',
-'Applicative', and 'Monad', i.e.,
+'Applicative', 'Monad', 'Category', and 'Arrow', i.e.,
 
   untrie mempty          == mempty
   untrie (s `mappend` t) == untrie s `mappend` untrie t
@@ -222,6 +267,12 @@ The \"semantic function\" 'untrie' is a morphism over 'Monoid', 'Functor',
 
   untrie (return a)      == return a
   untrie (u >>= k)       == untrie u >>= untrie . k
+
+  untrie id              == id
+  untrie (s . t)         == untrie s . untrie t
+
+  untrie (arr f)         == arr f
+  untrie (first t)       == first (untrie t)
 
 These morphism properties imply that all of the expected laws hold,
 assuming that we interpret equality semantically (or observationally).
@@ -241,9 +292,6 @@ For instance,
 The implementation instances then follow from applying 'trie' to both
 sides of each of these morphism laws.
 
-Correctness of these instances follows by applying 'untrie' to each side
-of each definition and using the property @'untrie' . 'trie' == 'id'@.
-
 -}
 
 instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
@@ -260,3 +308,22 @@ instance HasTrie a => Applicative ((:->:) a) where
 instance HasTrie a => Monad ((:->:) a) where
   return a      = trie (return a)
   u >>= k       = trie (untrie u >>= untrie . k)
+
+-- instance Category (:->:) where
+--   id            = trie id
+--   s . t         = trie (untrie s . untrie t)
+
+-- instance Arrow (:->:) where
+--   arr f         = trie (arr f)
+--   first t       = trie (first (untrie t))
+
+{-
+
+Correctness of these instances follows by applying 'untrie' to each side
+of each definition and using the property @'untrie' . 'trie' == 'id'@.
+
+The `Category` and `Arrow` instances don't quite work, however, however,
+because of necessary but disallowed `HasTrie` constraints on the domain
+type.
+
+-}
