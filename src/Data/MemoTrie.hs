@@ -13,7 +13,7 @@
 -- Stability   :  experimental
 -- 
 -- Trie-based memoizer
--- Adapted from sjanssen's paste: "a lazy trie" <http://hpaste.org/3839>.
+-- Adapted from sjanssen's paste: \"a lazy trie\" <http://hpaste.org/3839>.
 ----------------------------------------------------------------------
 
 module Data.MemoTrie
