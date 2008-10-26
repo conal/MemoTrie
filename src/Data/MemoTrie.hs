@@ -31,7 +31,6 @@ import Data.Monoid
 -- import Control.Category
 -- import Control.Arrow
 
-
 -- | Mapping from all elements of @a@ to the results of some function
 class HasTrie a where
     -- | Representation of trie with domain type @a@

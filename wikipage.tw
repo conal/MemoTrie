@@ -2,7 +2,7 @@
 
 == Abstract ==
 
-'''MemoTrie''' is functional library for creating efficient memo functions, using [http://en.wikipedia.org/wiki/Trie trie]s.  It's based on some code I got from Spencer Janssen and uses type families.
+'''MemoTrie''' is functional library for creating efficient memo functions, using [http://en.wikipedia.org/wiki/Trie trie]s.  It's based on [http://hpaste.org/3839 some code] from Spencer Janssen and uses type families.
 
 Besides this wiki page, here are more ways to find out about MemoTrie:
 * Read [http://code.haskell.org/MemoTrie/doc/html/ the library documentation].
@@ -15,4 +15,7 @@ Please leave comments at the [[Talk:MemoTrie|Talk page]].
 == See also ==
 
 * [http://www.haskell.org/haskellwiki/GHC/Indexed_types#An_associated_data_type_example An associated data type example]
-* [http://citeseer.ist.psu.edu/233124.html Generalizing Generalized Tries]
+* Ralf Hinze's ''[http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.46.223 Generalizing Generalized Tries]''
+* Related [http://conal.net/blog/tag/tries/ blog posts].
+* Use of MemoTrie in [[vector-space]].
+
