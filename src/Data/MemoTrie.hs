@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wall -frewrite-rules #-}
+{-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
 -- supposed to be recognized in a RULES pragma.
 
