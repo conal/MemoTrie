@@ -245,6 +245,11 @@ instance HasTrie Int where
     untrie (IntTrie t) n = untrie t (fromIntegral n)
     trie f = IntTrie (trie (f . fromIntegral . toInteger))
 
+instance HasTrie Integer where
+    data Integer :->: a = IntegerTrie (Word :->: a)
+    untrie (IntegerTrie t) n = untrie t (fromIntegral n)
+    trie f = IntegerTrie (trie (f . fromIntegral . toInteger))
+
 
 -- TODO: make these definitions more systematic.
 
