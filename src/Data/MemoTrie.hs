@@ -298,28 +298,51 @@ sides of each of these morphism laws.
 
 -}
 
+-- | Apply a unary function inside of a trie
+inTrie :: (HasTrie a, HasTrie c) =>
+          ((a  ->  b) -> (c  ->  d))
+       -> ((a :->: b) -> (c :->: d))
+inTrie = untrie ~> trie
+
+-- | Apply a binary function inside of a trie
+inTrie2 :: (HasTrie a, HasTrie c, HasTrie e) =>
+           ((a  ->  b) -> (c  ->  d) -> (e  ->  f))
+        -> ((a :->: b) -> (c :->: d) -> (e :->: f))
+inTrie2 = untrie ~> inTrie
+
+
 instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
-  mempty        = trie mempty
-  s `mappend` t = trie (untrie s `mappend` untrie t)
+  mempty  = trie mempty
+  mappend = inTrie2 mappend
+
+--   s `mappend` t = trie (untrie s `mappend` untrie t)
 
 instance HasTrie a => Functor ((:->:) a) where
-  fmap f t      = trie (fmap f (untrie t))
+  fmap f = inTrie (fmap f)
+
+--   fmap f t      = trie (fmap f (untrie t))
 
 instance HasTrie a => Applicative ((:->:) a) where
-  pure b        = trie (pure b)
-  tf <*> tx     = trie (untrie tf <*> untrie tx)
+  pure b = trie (pure b)
+  (<*>)  = inTrie2 (<*>)
+
+--  tf <*> tx     = trie (untrie tf <*> untrie tx)
 
 instance HasTrie a => Monad ((:->:) a) where
   return a      = trie (return a)
   u >>= k       = trie (untrie u >>= untrie . k)
 
 -- instance Category (:->:) where
---   id            = trie id
---   s . t         = trie (untrie s . untrie t)
+--   id  = trie id
+--   (.) = inTrie2 (.)
+
+-- --  s . t         = trie (untrie s . untrie t)
 
 -- instance Arrow (:->:) where
---   arr f         = trie (arr f)
---   first t       = trie (first (untrie t))
+--   arr f = trie (arr f)
+--   first = inTrie first
+
+-- --  first t       = trie (first (untrie t))
 
 {-
 
@@ -331,3 +354,9 @@ because of necessary but disallowed `HasTrie` constraints on the domain
 type.
 
 -}
+
+
+---- to go elsewhere
+
+(~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
+g ~> f = (f .) . (. g)
