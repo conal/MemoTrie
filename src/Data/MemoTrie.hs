@@ -19,6 +19,7 @@
 module Data.MemoTrie
   ( HasTrie(..)
   , memo, memo2, memo3, mup
+  , inTrie, inTrie2, inTrie3
   -- , untrieBits
   ) where
 
@@ -69,6 +70,24 @@ mup mem f = memo (mem . f)
 
 memo2 = mup memo
 memo3 = mup memo2
+
+-- | Apply a unary function inside of a trie
+inTrie :: (HasTrie a, HasTrie c) =>
+          ((a  ->  b) -> (c  ->  d))
+       -> ((a :->: b) -> (c :->: d))
+inTrie = untrie ~> trie
+
+-- | Apply a binary function inside of a trie
+inTrie2 :: (HasTrie a, HasTrie c, HasTrie e) =>
+           ((a  ->  b) -> (c  ->  d) -> (e  ->  f))
+        -> ((a :->: b) -> (c :->: d) -> (e :->: f))
+inTrie2 = untrie ~> inTrie
+
+-- | Apply a ternary function inside of a trie
+inTrie3 :: (HasTrie a, HasTrie c, HasTrie e, HasTrie g) =>
+           ((a  ->  b) -> (c  ->  d) -> (e  ->  f) -> (g  ->  h))
+        -> ((a :->: b) -> (c :->: d) -> (e :->: f) -> (g :->: h))
+inTrie3 = untrie ~> inTrie2
 
 
 ---- Instances
@@ -298,51 +317,28 @@ sides of each of these morphism laws.
 
 -}
 
--- | Apply a unary function inside of a trie
-inTrie :: (HasTrie a, HasTrie c) =>
-          ((a  ->  b) -> (c  ->  d))
-       -> ((a :->: b) -> (c :->: d))
-inTrie = untrie ~> trie
-
--- | Apply a binary function inside of a trie
-inTrie2 :: (HasTrie a, HasTrie c, HasTrie e) =>
-           ((a  ->  b) -> (c  ->  d) -> (e  ->  f))
-        -> ((a :->: b) -> (c :->: d) -> (e :->: f))
-inTrie2 = untrie ~> inTrie
-
-
 instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
   mempty  = trie mempty
   mappend = inTrie2 mappend
 
---   s `mappend` t = trie (untrie s `mappend` untrie t)
-
 instance HasTrie a => Functor ((:->:) a) where
   fmap f = inTrie (fmap f)
-
---   fmap f t      = trie (fmap f (untrie t))
 
 instance HasTrie a => Applicative ((:->:) a) where
   pure b = trie (pure b)
   (<*>)  = inTrie2 (<*>)
 
---  tf <*> tx     = trie (untrie tf <*> untrie tx)
-
 instance HasTrie a => Monad ((:->:) a) where
-  return a      = trie (return a)
-  u >>= k       = trie (untrie u >>= untrie . k)
+  return a = trie (return a)
+  u >>= k  = trie (untrie u >>= untrie . k)
 
 -- instance Category (:->:) where
 --   id  = trie id
 --   (.) = inTrie2 (.)
 
--- --  s . t         = trie (untrie s . untrie t)
-
 -- instance Arrow (:->:) where
 --   arr f = trie (arr f)
 --   first = inTrie first
-
--- --  first t       = trie (first (untrie t))
 
 {-
 
@@ -356,7 +352,10 @@ type.
 -}
 
 
----- to go elsewhere
+---- To go elsewhere
+
+-- Matt Hellige's notation for @argument f . result g@.
+-- <http://matt.immute.net/content/pointless-fun>
 
 (~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
 g ~> f = (f .) . (. g)
