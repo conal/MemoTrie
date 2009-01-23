@@ -317,6 +317,33 @@ sides of each of these morphism laws.
 
 -}
 
+{-
+instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
+  mempty  = trie mempty
+  s `mappend` t = trie (untrie s `mappend` untrie t)
+
+instance HasTrie a => Functor ((:->:) a) where
+  fmap f t      = trie (fmap f (untrie t))
+
+instance HasTrie a => Applicative ((:->:) a) where
+  pure b        = trie (pure b)
+  tf <*> tx     = trie (untrie tf <*> untrie tx)
+
+instance HasTrie a => Monad ((:->:) a) where
+  return a      = trie (return a)
+  u >>= k       = trie (untrie u >>= untrie . k)
+
+-- instance Category (:->:) where
+--   id            = trie id
+--   s . t         = trie (untrie s . untrie t)
+
+-- instance Arrow (:->:) where
+--   arr f         = trie (arr f)
+--   first t       = trie (first (untrie t))
+-}
+
+-- Simplify, using inTrie, inTrie2
+
 instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
   mempty  = trie mempty
   mappend = inTrie2 mappend
