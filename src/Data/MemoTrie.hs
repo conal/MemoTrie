@@ -28,6 +28,7 @@ import Data.Word
 import Control.Applicative
 import Control.Arrow (first)
 import Data.Monoid
+import Data.Function (on)
 
 -- import Prelude hiding (id,(.))
 -- import Control.Category
@@ -41,7 +42,7 @@ class HasTrie a where
     trie   :: (a  ->  b) -> (a :->: b)
     -- | Convert a trie to a function, i.e., access a field of the trie
     untrie :: (a :->: b) -> (a  ->  b)
-    -- | List the trie elements
+    -- | List the trie elements.  Order of keys (@:: a@) is always the same.
     enumerate :: (a :->: b) -> [(a,b)]
 
 -- | Domain elements of a trie
@@ -51,6 +52,9 @@ domain = map fst (enumerate (trie (const oops)))
    oops = error "Data.MemoTrie.domain: range element evaluated."
 
 -- Hm: domain :: [Bool] doesn't produce any output.
+
+instance (HasTrie a, Eq b) => Eq (a :->: b) where
+  (==) = (==) `on` (map snd . enumerate)
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
