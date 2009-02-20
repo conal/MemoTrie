@@ -17,7 +17,7 @@
 ----------------------------------------------------------------------
 
 module Data.MemoTrie
-  ( HasTrie(..)
+  ( HasTrie(..), idTrie, (@.@)
   , memo, memo2, memo3, mup
   , inTrie, inTrie2, inTrie3
   -- , untrieBits
@@ -95,7 +95,7 @@ inTrie3 = untrie ~> inTrie2
 instance HasTrie () where
     data () :->: a = UnitTrie a
     trie f = UnitTrie (f ())
-    untrie (UnitTrie a) = const a
+    untrie (UnitTrie a) = \ () -> a
 
 -- Proofs of inverse properties:
 
@@ -104,17 +104,25 @@ instance HasTrie () where
       == { trie def }
     untrie (UnitTrie (f ()))
       == { untrie def }
-    const (f ())
+    \ () -> (f ())
       == { const-unit }
     f   
 
     trie (untrie (UnitTrie a))
       == { untrie def }
-    trie (const a)
+    trie (\ () -> a)
       == { trie def }
-    UnitTrie (const a ())
-      == { const }
+    UnitTrie ((\ () -> a) ())
+      == { beta-reduction }
     UnitTrie a
+
+Oops -- the last step of the first direction is bogus when f is non-strict.
+Can be fixed by using @const a@ in place of @\ () -> a@, but I can't do
+the same for other types, like integers or sums.
+
+All of these proofs have this same bug, unless we restrict ourselves to
+memoizing hyper-strict functions.
+
 -}
 
 
@@ -126,8 +134,8 @@ instance HasTrie Bool where
 -- | Conditional with boolean last.
 -- Spec: @if' (f False) (f True) == f@
 if' :: x -> x -> Bool -> x
-if' f _ False = f
-if' _ t True  = t
+if' t _ False = t
+if' _ e True  = e
 
 {-
     untrie (trie f)
@@ -359,9 +367,21 @@ instance HasTrie a => Monad ((:->:) a) where
   return a = trie (return a)
   u >>= k  = trie (untrie u >>= untrie . k)
 
+-- | Identity trie
+idTrie :: HasTrie a => a :->: a
+idTrie = trie id
+
+infixr 9 @.@
+-- | Trie composition
+(@.@) :: (HasTrie a, HasTrie b) =>
+         (b :->: c) -> (a :->: b) -> (a :->: c)
+(@.@) = inTrie2 (.)
+
+
+
 -- instance Category (:->:) where
---   id  = trie id
---   (.) = inTrie2 (.)
+--   id  = idTrie
+--   (.) = (.:)
 
 -- instance Arrow (:->:) where
 --   arr f = trie (arr f)
