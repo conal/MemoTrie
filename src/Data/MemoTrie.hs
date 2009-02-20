@@ -26,7 +26,9 @@ module Data.MemoTrie
 import Data.Bits
 import Data.Word
 import Control.Applicative
+import Control.Arrow (first)
 import Data.Monoid
+import Data.DList ()
 
 -- import Prelude hiding (id,(.))
 -- import Control.Category
@@ -40,6 +42,8 @@ class HasTrie a where
     trie   :: (a  ->  b) -> (a :->: b)
     -- | Convert a trie to a function, i.e., access a field of the trie
     untrie :: (a :->: b) -> (a  ->  b)
+    -- | List the trie elements
+    enumerate :: (a :->: b) -> [(a,b)]
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
@@ -96,6 +100,7 @@ instance HasTrie () where
     data () :->: a = UnitTrie a
     trie f = UnitTrie (f ())
     untrie (UnitTrie a) = \ () -> a
+    enumerate (UnitTrie a) = [((),a)]
 
 -- Proofs of inverse properties:
 
@@ -130,6 +135,7 @@ instance HasTrie Bool where
     data Bool :->: x = BoolTrie x x
     trie f = BoolTrie (f False) (f True)
     untrie (BoolTrie f t) = if' f t
+    enumerate (BoolTrie f t) = [(False,f),(True,t)]
 
 -- | Conditional with boolean last.
 -- Spec: @if' (f False) (f True) == f@
@@ -160,6 +166,10 @@ instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
     data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
     trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
     untrie (EitherTrie s t) = either (untrie s) (untrie t)
+    enumerate (EitherTrie s t) = enum' Left s ++ enum' Right t
+
+enum' :: (HasTrie a) => (a -> a') -> (a :->: b) -> [(a', b)]
+enum' f = (fmap.first) f . enumerate
 
 {-
     untrie (trie f)
@@ -189,6 +199,8 @@ instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
     data (a,b) :->: x = PairTrie (a :->: (b :->: x))
     trie f = PairTrie (trie (trie . curry f))
     untrie (PairTrie t) = uncurry (untrie .  untrie t)
+    enumerate (PairTrie tt) =
+      [ ((a,b),x) | (a,t) <- enumerate tt , (b,x) <- enumerate t ]
 
 {-
     untrie (trie f)
@@ -220,6 +232,7 @@ instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c) where
     data (a,b,c) :->: x = TripleTrie (((a,b),c) :->: x)
     trie f = TripleTrie (trie (f . trip))
     untrie (TripleTrie t) = untrie t . detrip
+    enumerate (TripleTrie t) = enum' trip t
 
 trip :: ((a,b),c) -> (a,b,c)
 trip ((a,b),c) = (a,b,c)
@@ -232,6 +245,7 @@ instance HasTrie x => HasTrie [x] where
     data [x] :->: a = ListTrie (Either () (x,[x]) :->: a)
     trie f = ListTrie (trie (f . list))
     untrie (ListTrie t) = untrie t . delist
+    enumerate (ListTrie t) = enum' list t
 
 list :: Either () (x,[x]) -> [x]
 list = either (const []) (uncurry (:))
@@ -245,6 +259,8 @@ instance HasTrie Word where
     data Word :->: a = WordTrie ([Bool] :->: a)
     trie f = WordTrie (trie (f . unbits))
     untrie (WordTrie t) = untrie t . bits
+    enumerate (WordTrie t) = enum' unbits t
+
 
 -- | Extract bits in little-endian order
 bits :: Bits t => t -> [Bool]
@@ -271,12 +287,13 @@ instance HasTrie Int where
     data Int :->: a = IntTrie (Word :->: a)
     untrie (IntTrie t) n = untrie t (fromIntegral n)
     trie f = IntTrie (trie (f . fromIntegral . toInteger))
+    enumerate (IntTrie t) = enum' fromIntegral t
 
 instance HasTrie Integer where
     data Integer :->: a = IntegerTrie (Word :->: a)
     untrie (IntegerTrie t) n = untrie t (fromIntegral n)
     trie f = IntegerTrie (trie (f . fromIntegral . toInteger))
-
+    enumerate (IntegerTrie t) = enum' fromIntegral t
 
 -- TODO: make these definitions more systematic.
 
