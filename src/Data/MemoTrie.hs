@@ -28,7 +28,6 @@ import Data.Word
 import Control.Applicative
 import Control.Arrow (first)
 import Data.Monoid
-import Data.DList ()
 
 -- import Prelude hiding (id,(.))
 -- import Control.Category
@@ -44,6 +43,14 @@ class HasTrie a where
     untrie :: (a :->: b) -> (a  ->  b)
     -- | List the trie elements
     enumerate :: (a :->: b) -> [(a,b)]
+
+-- | Domain elements of a trie
+domain :: HasTrie a => [a]
+domain = map fst (enumerate (trie (const oops)))
+ where
+   oops = error "Data.MemoTrie.domain: range element evaluated."
+
+-- Hm: domain :: [Bool] doesn't produce any output.
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
@@ -166,10 +173,15 @@ instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
     data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
     trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
     untrie (EitherTrie s t) = either (untrie s) (untrie t)
-    enumerate (EitherTrie s t) = enum' Left s ++ enum' Right t
+    enumerate (EitherTrie s t) = enum' Left s `weave` enum' Right t
 
 enum' :: (HasTrie a) => (a -> a') -> (a :->: b) -> [(a', b)]
 enum' f = (fmap.first) f . enumerate
+
+weave :: [a] -> [a] -> [a]
+[] `weave` as = as
+as `weave` [] = as
+(a:as) `weave` bs = a : (bs `weave` as)
 
 {-
     untrie (trie f)
