@@ -17,7 +17,7 @@
 ----------------------------------------------------------------------
 
 module Data.MemoTrie
-  ( HasTrie(..), idTrie, (@.@)
+  ( HasTrie(..), domain, idTrie, (@.@)
   , memo, memo2, memo3, mup
   , inTrie, inTrie2, inTrie3
   -- , untrieBits
@@ -55,6 +55,9 @@ domain = map fst (enumerate (trie (const oops)))
 
 instance (HasTrie a, Eq b) => Eq (a :->: b) where
   (==) = (==) `on` (map snd . enumerate)
+
+instance (HasTrie a, Show a, Show b) => Show (a :->: b) where
+  show t = "Trie: " ++ show (enumerate t)
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
