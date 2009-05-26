@@ -26,7 +26,7 @@ module Data.MemoTrie
 import Data.Bits
 import Data.Word
 import Control.Applicative
-import Control.Arrow (first)
+import Control.Arrow (first,(&&&))
 import Data.Monoid
 import Data.Function (on)
 
@@ -308,11 +308,33 @@ instance HasTrie Int where
     trie f = IntTrie (trie (f . fromIntegral . toInteger))
     enumerate (IntTrie t) = enum' fromIntegral t
 
+-- instance HasTrie Integer where
+--     data Integer :->: a = IntegerTrie (Word :->: a)
+--     untrie (IntegerTrie t) n = untrie t (fromIntegral n)
+--     trie f = IntegerTrie (trie (f . fromIntegral . toInteger))
+--     enumerate (IntegerTrie t) = enum' fromIntegral t
+
+-- OOPS! This Integer instance is bogus.
+
 instance HasTrie Integer where
-    data Integer :->: a = IntegerTrie (Word :->: a)
-    untrie (IntegerTrie t) n = untrie t (fromIntegral n)
-    trie f = IntegerTrie (trie (f . fromIntegral . toInteger))
-    enumerate (IntegerTrie t) = enum' fromIntegral t
+    data Integer :->: a = IntegerTrie ((Bool,[Bool]) :->: a)
+    trie f = IntegerTrie (trie (f . unbitsZ))
+    untrie (IntegerTrie t) = untrie t . bitsZ
+    enumerate (IntegerTrie t) = enum' unbitsZ t
+
+
+unbitsZ :: (Bool,[Bool]) -> Integer
+unbitsZ (positive,bs) = sig (unbits bs)
+ where
+   sig | positive  = id
+       | otherwise = negate
+
+bitsZ :: Integer -> (Bool,[Bool])
+bitsZ = (>= 0) &&& (bits . abs)
+
+-- bitsZ n = (sign n, bits (abs n))
+
+
 
 -- TODO: make these definitions more systematic.
 
@@ -428,9 +450,8 @@ infixr 9 @.@
 Correctness of these instances follows by applying 'untrie' to each side
 of each definition and using the property @'untrie' . 'trie' == 'id'@.
 
-The `Category` and `Arrow` instances don't quite work, however, however,
-because of necessary but disallowed `HasTrie` constraints on the domain
-type.
+The `Category` and `Arrow` instances don't quite work, however, because of
+necessary but disallowed `HasTrie` constraints on the domain type.
 
 -}
 
