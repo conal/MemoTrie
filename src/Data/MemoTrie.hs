@@ -308,14 +308,6 @@ instance HasTrie Int where
     trie f = IntTrie (trie (f . fromIntegral . toInteger))
     enumerate (IntTrie t) = enum' fromIntegral t
 
--- instance HasTrie Integer where
---     data Integer :->: a = IntegerTrie (Word :->: a)
---     untrie (IntegerTrie t) n = untrie t (fromIntegral n)
---     trie f = IntegerTrie (trie (f . fromIntegral . toInteger))
---     enumerate (IntegerTrie t) = enum' fromIntegral t
-
--- OOPS! This Integer instance is bogus.
-
 instance HasTrie Integer where
     data Integer :->: a = IntegerTrie ((Bool,[Bool]) :->: a)
     trie f = IntegerTrie (trie (f . unbitsZ))
