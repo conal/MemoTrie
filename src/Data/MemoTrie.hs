@@ -296,6 +296,11 @@ unbits :: Bits t => [Bool] -> t
 unbits [] = 0
 unbits (x:xs) = unbit x .|. shiftL (unbits xs) 1
 
+instance HasTrie Char where
+    data Char :->: a = CharTrie (Int :->: a)
+    untrie (CharTrie t) n = untrie t (fromEnum n)
+    trie f = CharTrie (trie (f . toEnum))
+    enumerate (CharTrie t) = enum' toEnum t
 
 -- Although Int is a Bits instance, we can't use bits directly for
 -- memoizing, because the "bits" function gives an infinite result, since
