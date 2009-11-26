@@ -1,5 +1,5 @@
 Name:                MemoTrie
-Version:             0.4.6
+Version:             0.4.7
 Cabal-Version:       >= 1.2
 Synopsis:            Trie-based memo functions
 Category:            Data
@@ -22,7 +22,7 @@ build-type:          Simple
 Library
   hs-Source-Dirs:      src
   Extensions:          
-  Build-Depends:       base
+  Build-Depends:       base < 5
   Exposed-Modules:     
                      Data.MemoTrie
   ghc-options:         -Wall
