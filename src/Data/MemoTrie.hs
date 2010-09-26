@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables, CPP #-}
 {-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
 -- supposed to be recognized in a RULES pragma.
@@ -18,6 +18,7 @@
 
 module Data.MemoTrie
   ( HasTrie(..), domain, idTrie, (@.@)
+  -- , trie2, trie3, untrie2, untrie3
   , memo, memo2, memo3, mup
   , inTrie, inTrie2, inTrie3
   -- , untrieBits
@@ -25,6 +26,7 @@ module Data.MemoTrie
 
 import Data.Bits
 import Data.Word
+import Data.Int
 import Control.Applicative
 import Control.Arrow (first,(&&&))
 import Data.Monoid
@@ -34,11 +36,13 @@ import Data.Function (on)
 -- import Control.Category
 -- import Control.Arrow
 
+infixr 0 :->:
+
 -- | Mapping from all elements of @a@ to the results of some function
 class HasTrie a where
     -- | Representation of trie with domain type @a@
     data (:->:) a :: * -> *
-    -- Create the trie for the entire domain of a function
+    -- | Create the trie for the entire domain of a function
     trie   :: (a  ->  b) -> (a :->: b)
     -- | Convert a trie to a function, i.e., access a field of the trie
     untrie :: (a :->: b) -> (a  ->  b)
@@ -58,6 +62,31 @@ instance (HasTrie a, Eq b) => Eq (a :->: b) where
 
 instance (HasTrie a, Show a, Show b) => Show (a :->: b) where
   show t = "Trie: " ++ show (enumerate t)
+
+{-
+trie2 :: (HasTrie a, HasTrie b) =>
+         (a -> b -> c) -> (a :->: b :->: c)
+-- trie2 h = trie $ \ a -> trie $ \ b -> h a b
+-- trie2 h = trie $ \ a -> trie (h a)
+trie2 h = trie (trie . h)
+-- trie2 h = trie (fmap trie h)
+-- trie2 = (fmap.fmap) trie trie
+
+
+trie3 :: (HasTrie a, HasTrie b, HasTrie c) =>
+         (a -> b -> c -> d) -> (a :->: b :->: c :->: d)
+trie3 h = trie (trie2 . h)
+
+untrie2 :: (HasTrie a, HasTrie b) =>
+          (a :->: b :->: c)-> (a -> b -> c)
+untrie2 tt = untrie . untrie tt
+
+
+untrie3 :: (HasTrie a, HasTrie b, HasTrie c) =>
+          (a :->: b :->: c :->: d)-> (a -> b -> c -> d)
+untrie3 tt = untrie2 . untrie tt
+-}
+
 
 {-# RULES
 "trie/untrie"   forall t. trie (untrie t) = t
@@ -273,12 +302,24 @@ delist :: [x] -> Either () (x,[x])
 delist []     = Left ()
 delist (x:xs) = Right (x,xs)
 
+#define WordInstance(Type,TrieType)\
+instance HasTrie Type where \
+    data Type :->: a = TrieType ([Bool] :->: a);\
+    trie f = TrieType (trie (f . unbits));\
+    untrie (TrieType t) = untrie t . bits;\
+    enumerate (TrieType t) = enum' unbits t
 
-instance HasTrie Word where
-    data Word :->: a = WordTrie ([Bool] :->: a)
-    trie f = WordTrie (trie (f . unbits))
-    untrie (WordTrie t) = untrie t . bits
-    enumerate (WordTrie t) = enum' unbits t
+WordInstance(Word,WordTrie)
+WordInstance(Word8,Word8Trie)
+WordInstance(Word16,Word16Trie)
+WordInstance(Word32,Word32Trie)
+WordInstance(Word64,Word64Trie)
+
+-- instance HasTrie Word where
+--     data Word :->: a = WordTrie ([Bool] :->: a)
+--     trie f = WordTrie (trie (f . unbits))
+--     untrie (WordTrie t) = untrie t . bits
+--     enumerate (WordTrie t) = enum' unbits t
 
 
 -- | Extract bits in little-endian order
@@ -307,11 +348,21 @@ instance HasTrie Char where
 -- shiftR (-1) 1 == -1.  Instead, convert between Int and Word, and use
 -- a Word trie.  Any Integral type can be handled similarly.
 
-instance HasTrie Int where
-    data Int :->: a = IntTrie (Word :->: a)
-    untrie (IntTrie t) n = untrie t (fromIntegral n)
-    trie f = IntTrie (trie (f . fromIntegral . toInteger))
-    enumerate (IntTrie t) = enum' fromIntegral t
+#define IntInstance(IntType,WordType,TrieType) \
+instance HasTrie IntType where \
+    data IntType :->: a = TrieType (WordType :->: a); \
+    untrie (TrieType t) n = untrie t (fromIntegral n); \
+    trie f = TrieType (trie (f . fromIntegral)); \
+    enumerate (TrieType t) = enum' fromIntegral t
+
+IntInstance(Int,Word,IntTrie)
+IntInstance(Int8,Word8,Int8Trie)
+IntInstance(Int16,Word16,Int16Trie)
+IntInstance(Int32,Word32,Int32Trie)
+IntInstance(Int64,Word64,Int64Trie)
+
+-- For unbounded integers, we don't have a corresponding Word type, so
+-- extract the sign bit.
 
 instance HasTrie Integer where
     data Integer :->: a = IntegerTrie ((Bool,[Bool]) :->: a)
@@ -320,13 +371,13 @@ instance HasTrie Integer where
     enumerate (IntegerTrie t) = enum' unbitsZ t
 
 
-unbitsZ :: (Bool,[Bool]) -> Integer
+unbitsZ :: (Bits n) => (Bool,[Bool]) -> n
 unbitsZ (positive,bs) = sig (unbits bs)
  where
    sig | positive  = id
        | otherwise = negate
 
-bitsZ :: Integer -> (Bool,[Bool])
+bitsZ :: (Ord n, Bits n) => n -> (Bool,[Bool])
 bitsZ = (>= 0) &&& (bits . abs)
 
 -- bitsZ n = (sign n, bits (abs n))
@@ -460,3 +511,11 @@ necessary but disallowed `HasTrie` constraints on the domain type.
 
 (~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
 g ~> f = (f .) . (. g)
+
+{-
+-- Examples
+f1,f1' :: Int -> Int
+f1 n = n + n
+
+f1' = memo f1
+-}
