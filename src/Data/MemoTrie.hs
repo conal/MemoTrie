@@ -140,7 +140,7 @@ inTrie3 = untrie ~> inTrie2
 ---- Instances
 
 instance HasTrie () where
-    data () :->: a = UnitTrie a
+    newtype () :->: a = UnitTrie a
     trie f = UnitTrie (f ())
     untrie (UnitTrie a) = \ () -> a
     enumerate (UnitTrie a) = [((),a)]
@@ -244,7 +244,7 @@ as `weave` [] = as
 
 
 instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
-    data (a,b) :->: x = PairTrie (a :->: (b :->: x))
+    newtype (a,b) :->: x = PairTrie (a :->: (b :->: x))
     trie f = PairTrie (trie (trie . curry f))
     untrie (PairTrie t) = uncurry (untrie .  untrie t)
     enumerate (PairTrie tt) =
@@ -277,7 +277,7 @@ instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
 -}
 
 instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c) where
-    data (a,b,c) :->: x = TripleTrie (((a,b),c) :->: x)
+    newtype (a,b,c) :->: x = TripleTrie (((a,b),c) :->: x)
     trie f = TripleTrie (trie (f . trip))
     untrie (TripleTrie t) = untrie t . detrip
     enumerate (TripleTrie t) = enum' trip t
@@ -290,7 +290,7 @@ detrip (a,b,c) = ((a,b),c)
 
 
 instance HasTrie x => HasTrie [x] where
-    data [x] :->: a = ListTrie (Either () (x,[x]) :->: a)
+    newtype [x] :->: a = ListTrie (Either () (x,[x]) :->: a)
     trie f = ListTrie (trie (f . list))
     untrie (ListTrie t) = untrie t . delist
     enumerate (ListTrie t) = enum' list t
@@ -304,7 +304,7 @@ delist (x:xs) = Right (x,xs)
 
 #define WordInstance(Type,TrieType)\
 instance HasTrie Type where \
-    data Type :->: a = TrieType ([Bool] :->: a);\
+    newtype Type :->: a = TrieType ([Bool] :->: a);\
     trie f = TrieType (trie (f . unbits));\
     untrie (TrieType t) = untrie t . bits;\
     enumerate (TrieType t) = enum' unbits t
@@ -316,7 +316,7 @@ WordInstance(Word32,Word32Trie)
 WordInstance(Word64,Word64Trie)
 
 -- instance HasTrie Word where
---     data Word :->: a = WordTrie ([Bool] :->: a)
+--     newtype Word :->: a = WordTrie ([Bool] :->: a)
 --     trie f = WordTrie (trie (f . unbits))
 --     untrie (WordTrie t) = untrie t . bits
 --     enumerate (WordTrie t) = enum' unbits t
@@ -338,7 +338,7 @@ unbits [] = 0
 unbits (x:xs) = unbit x .|. shiftL (unbits xs) 1
 
 instance HasTrie Char where
-    data Char :->: a = CharTrie (Int :->: a)
+    newtype Char :->: a = CharTrie (Int :->: a)
     untrie (CharTrie t) n = untrie t (fromEnum n)
     trie f = CharTrie (trie (f . toEnum))
     enumerate (CharTrie t) = enum' toEnum t
@@ -350,7 +350,7 @@ instance HasTrie Char where
 
 #define IntInstance(IntType,WordType,TrieType) \
 instance HasTrie IntType where \
-    data IntType :->: a = TrieType (WordType :->: a); \
+    newtype IntType :->: a = TrieType (WordType :->: a); \
     untrie (TrieType t) n = untrie t (fromIntegral n); \
     trie f = TrieType (trie (f . fromIntegral)); \
     enumerate (TrieType t) = enum' fromIntegral t
@@ -365,7 +365,7 @@ IntInstance(Int64,Word64,Int64Trie)
 -- extract the sign bit.
 
 instance HasTrie Integer where
-    data Integer :->: a = IntegerTrie ((Bool,[Bool]) :->: a)
+    newtype Integer :->: a = IntegerTrie ((Bool,[Bool]) :->: a)
     trie f = IntegerTrie (trie (f . unbitsZ))
     untrie (IntegerTrie t) = untrie t . bitsZ
     enumerate (IntegerTrie t) = enum' unbitsZ t
