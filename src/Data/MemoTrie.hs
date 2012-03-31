@@ -6,7 +6,7 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Data.MemoTrie
--- Copyright   :  (c) Conal Elliott 2008
+-- Copyright   :  (c) Conal Elliott 2008-2012
 -- License     :  BSD3
 -- 
 -- Maintainer  :  conal@conal.net
@@ -323,7 +323,7 @@ WordInstance(Word64,Word64Trie)
 
 
 -- | Extract bits in little-endian order
-bits :: Bits t => t -> [Bool]
+bits :: (Num t, Bits t) => t -> [Bool]
 bits 0 = []
 bits x = testBit x 0 : bits (shiftR x 1)
 
@@ -333,7 +333,7 @@ unbit False = 0
 unbit True  = 1
 
 -- | Bit list to value
-unbits :: Bits t => [Bool] -> t
+unbits :: (Num t, Bits t) => [Bool] -> t
 unbits [] = 0
 unbits (x:xs) = unbit x .|. shiftL (unbits xs) 1
 
@@ -371,18 +371,14 @@ instance HasTrie Integer where
     enumerate (IntegerTrie t) = enum' unbitsZ t
 
 
-unbitsZ :: (Bits n) => (Bool,[Bool]) -> n
+unbitsZ :: (Num n, Bits n) => (Bool,[Bool]) -> n
 unbitsZ (positive,bs) = sig (unbits bs)
  where
    sig | positive  = id
        | otherwise = negate
 
-bitsZ :: (Ord n, Bits n) => n -> (Bool,[Bool])
+bitsZ :: (Num n, Ord n, Bits n) => n -> (Bool,[Bool])
 bitsZ = (>= 0) &&& (bits . abs)
-
--- bitsZ n = (sign n, bits (abs n))
-
-
 
 -- TODO: make these definitions more systematic.
 
