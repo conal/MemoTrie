@@ -142,6 +142,7 @@ inTrie3 = untrie ~> inTrie2
 ---- Instances
 
 instance HasTrie Void where
+  -- As suggested by Audun
   data Void :->: a = VoidTrie 
   trie _ = VoidTrie
   untrie VoidTrie = absurd
