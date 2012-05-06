@@ -32,6 +32,8 @@ import Control.Arrow (first,(&&&))
 import Data.Monoid
 import Data.Function (on)
 
+import Data.Void
+
 -- import Prelude hiding (id,(.))
 -- import Control.Category
 -- import Control.Arrow
@@ -138,6 +140,12 @@ inTrie3 = untrie ~> inTrie2
 
 
 ---- Instances
+
+instance HasTrie Void where
+  data Void :->: a = VoidTrie 
+  trie _ = VoidTrie
+  untrie VoidTrie = absurd
+  enumerate VoidTrie = []
 
 instance HasTrie () where
     newtype () :->: a = UnitTrie a
