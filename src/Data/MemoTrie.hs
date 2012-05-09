@@ -20,12 +20,16 @@
 ----------------------------------------------------------------------
 
 module Data.MemoTrie
-  ( HasTrie(..), domain, idTrie, (@.@)
+  ( HasTrie, (:->:)(..), trie, untrie, enumerate
+  , domain, idTrie, (@.@)
   -- , trie2, trie3, untrie2, untrie3
   , memo, memo2, memo3, mup
   , inTrie, inTrie2, inTrie3
   -- , untrieBits
   ) where
+
+-- Export the parts of HasTrie separately in order to get the associated data
+-- type constructors, so I can define instances of other classes on them.
 
 import Data.Bits
 import Data.Word
