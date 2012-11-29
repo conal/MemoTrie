@@ -1,5 +1,5 @@
 Name:                MemoTrie
-Version:             0.6
+Version:             0.6.1
 Cabal-Version:       >= 1.6
 Synopsis:            Trie-based memo functions
 Category:            Data
