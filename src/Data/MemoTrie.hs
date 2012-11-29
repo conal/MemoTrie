@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables, CPP #-}
+{-# LANGUAGE StandaloneDeriving, FlexibleInstances #-}
 {-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
 -- supposed to be recognized in a RULES pragma.
@@ -20,7 +21,7 @@
 ----------------------------------------------------------------------
 
 module Data.MemoTrie
-  ( HasTrie, (:->:)(..), trie, untrie, enumerate
+  ( HasTrie(..), (:->:)(..)
   , domain, idTrie, (@.@)
   -- , trie2, trie3, untrie2, untrie3
   , memo, memo2, memo3, mup
