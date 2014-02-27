@@ -98,9 +98,7 @@ untrie3 tt = untrie2 . untrie tt
 -}
 
 
-{-# RULES
-"trie/untrie"   forall t. trie (untrie t) = t
- #-}
+{-# RULES "trie/untrie"   forall t. trie (untrie t) = t #-}
 
 -- Don't include the dual rule:
 --   "untrie/trie"   forall f. untrie (trie f) = f
