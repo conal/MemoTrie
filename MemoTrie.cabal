@@ -1,5 +1,5 @@
 Name:                MemoTrie
-Version:             0.6.1
+Version:             0.6.2
 Cabal-Version:       >= 1.6
 Synopsis:            Trie-based memo functions
 Category:            Data
@@ -31,3 +31,4 @@ Library
   Exposed-Modules:     
                      Data.MemoTrie
 
+ ghc-prof-options:    -prof -auto-all 
