@@ -1,5 +1,5 @@
 Name:                MemoTrie
-Version:             0.6.2
+Version:             0.6.3
 Cabal-Version:       >= 1.6
 Synopsis:            Trie-based memo functions
 Category:            Data
@@ -11,7 +11,7 @@ Description:
   Project wiki page: <http://haskell.org/haskellwiki/MemoTrie>
   .
   &#169; 2008-2012 by Conal Elliott; BSD3 license.
-Homepage:            http://haskell.org/haskellwiki/MemoTrie
+Homepage:            https://github.com/conal/MemoTrie
 Author:              Conal Elliott 
 Maintainer:          conal@conal.net
 Copyright:           (c) 2008-2012 by Conal Elliott
