@@ -62,8 +62,8 @@ import Data.Monoid
 import Data.Function (on)
 import GHC.Generics
 
-import Data.Void
-
+import Data.MemoTrie.Extra (Void) 
+ 
 -- import Prelude hiding (id,(.))
 -- import Control.Category
 -- import Control.Arrow
@@ -173,7 +173,7 @@ instance HasTrie Void where
   -- As suggested by Audun Skaugen
   data Void :->: a = VoidTrie 
   trie _ = VoidTrie
-  untrie VoidTrie = absurd
+  untrie VoidTrie = \case 
   enumerate VoidTrie = []
 
 instance HasTrie () where

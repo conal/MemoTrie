@@ -26,9 +26,15 @@ source-repository head
 
 Library
   hs-Source-Dirs:      src
-  Extensions:          
-  Build-Depends:       base < 5, void
+
+  if impl(ghc >= 7.10.0)
+     Build-Depends: base < 5 
+  else
+     Build-Depends: base < 5, void
+
   Exposed-Modules:     
                      Data.MemoTrie
+  Other-Modules:     
+                     Data.MemoTrie.Extra 
 
  ghc-prof-options:    -prof -auto-all 
