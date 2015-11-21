@@ -23,12 +23,14 @@
 -- You can automatically derive generic instances. for example: 
 -- 
 -- @
--- -- LANGUAGE DeriveGeneric, TypeOperators  
+-- -- LANGUAGE <https://ocharles.org.uk/blog/posts/2014-12-16-derive-generic.html DeriveGeneric>, TypeOperators, TypeFamilies #-}
+-- import Data.MemoTrie
+-- import GHC.Generics (Generic) 
 -- 
 -- data Color 
 --  = RGB Int Int Int
 --  | Color String 
---  deriving (Generic) 
+--  deriving ('Generic') 
 -- 
 -- instance HasTrie Color where
 --  newtype (Color :->: b) = ColorTrie { unColorTrie :: 'Reg' Color :->: b } 
@@ -36,6 +38,12 @@
 --  untrie = 'untrieGeneric' unColorTrie
 --  enumerate = 'enumerateGeneric' unColorTrie
 -- @
+-- 
+-- see @examples/Generic.hs@, which can be run with: 
+-- 
+-- @
+-- $ cabal configure -fexamples && cabal run generic
+-- @ 
 -- 
 -- 
 ----------------------------------------------------------------------
@@ -62,8 +70,8 @@ import Data.Monoid
 import Data.Function (on)
 import GHC.Generics
 
-import Data.Void
-
+import Data.Void (Void) 
+ 
 -- import Prelude hiding (id,(.))
 -- import Control.Category
 -- import Control.Arrow
@@ -173,7 +181,7 @@ instance HasTrie Void where
   -- As suggested by Audun Skaugen
   data Void :->: a = VoidTrie 
   trie _ = VoidTrie
-  untrie VoidTrie = absurd
+  untrie VoidTrie = \case 
   enumerate VoidTrie = []
 
 instance HasTrie () where
@@ -595,7 +603,8 @@ instance (HasTrie (f x)) => HasTrie (M1 i t f x) where
  untrie (M1Trie t) = \(M1 a) -> (untrie t) a  
  enumerate (M1Trie t) = enum' M1 t 
 
--- | "unlifted" generic representation. (i.e. is a unary type constructor). 
+-- | the data type in a __reg__ular form. 
+-- "unlifted" generic representation. (i.e. is a unary type constructor). 
 type Reg a = Rep a () 
 
 trieGeneric
@@ -640,19 +649,3 @@ liftSum :: Either (f a) (g a) -> (f :+: g) a
 liftSum = either L1 R1
 {-# INLINEABLE liftSum #-}
 
-{- example: 
-
-{-# LANGUAGE DeriveGeneric, TypeOperators #-}
-
-data Color 
- = RGB Int Int Int
- | Color String 
- deriving (Generic) 
-
-instance HasTrie Color where
- newtype (Color :->: b) = ColorTrie { unColorTrie :: Reg Color :->: b } 
- trie = trieGeneric ColorTrie 
- untrie = untrieGeneric unColorTrie
- enumerate = enumerateGeneric unColorTrie
-
--}
