@@ -6,12 +6,11 @@ Category:            Data
 Description:
   MemoTrie provides a basis for memoized functions over some domains,
   using tries.  It's based on ideas from Ralf Hinze and code from
-  Spencer Janssen.
+  Spencer Janssen. Generic support thanks to Sam Boosalis.
   .
   Project wiki page: <http://haskell.org/haskellwiki/MemoTrie>
   .
   &#169; 2008-2015 by Conal Elliott; BSD3 license.
-  Generic support thanks to Sam Boosalis.
 Homepage:            https://github.com/conal/MemoTrie
 Author:              Conal Elliott 
 Maintainer:          conal@conal.net
