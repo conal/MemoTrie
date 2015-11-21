@@ -4,7 +4,7 @@ import GHC.Generics (Generic)
 
 data Color 
  = RGB Int Int Int
- | Color String 
+ | NamedColor String 
  deriving (Generic) 
 
 instance HasTrie Color where
@@ -14,13 +14,13 @@ instance HasTrie Color where
  enumerate = enumerateGeneric unColorTrie
 
 runColor (RGB r g b) = r + g + b
-runColor (Color s) = length [1..10e7] 
+runColor (NamedColor s) = length [1..10e7] 
 
 runColorMemoized = memo runColor 
 
 main = do 
  putStrLn "first call (should take a few seconds): " 
- print$ runColorMemoized (Color "")
+ print$ runColorMemoized (NamedColor "")
  putStrLn "cached call (should be instantaneous): " 
- print$ runColorMemoized (Color "") 
+ print$ runColorMemoized (NamedColor "") 
 
