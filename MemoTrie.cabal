@@ -1,5 +1,5 @@
 Name:                MemoTrie
-Version:             0.6.4
+Version:             0.6.5
 Cabal-Version:       >= 1.10
 Synopsis:            Trie-based memo functions
 Category:            Data
@@ -33,15 +33,14 @@ Library
   hs-Source-Dirs:      src
 
   if impl(ghc >= 7.10.0)
-     Build-Depends: base >=4.8.0.0 && <5 
+     Build-Depends: base >=4.8.0.0 && <5
+                  , newtype-generics >= 0.4
   else
      Build-Depends: base <4.8.0.0, void
 
   Exposed-Modules:     
                      Data.MemoTrie
   Other-Modules:     
-
-  ghc-prof-options:    -prof -auto-all 
 
   default-language: Haskell2010
 
