@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables, CPP #-}
 {-# LANGUAGE StandaloneDeriving, FlexibleInstances #-} 
-{-# LANGUAGE DefaultSignatures, FlexibleContexts, EmptyCase, LambdaCase #-}
+{-# LANGUAGE DefaultSignatures, FlexibleContexts, LambdaCase #-}
 {-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
@@ -64,11 +64,13 @@ module Data.MemoTrie
 import Data.Bits
 import Data.Word
 import Data.Int
-import Control.Applicative
+-- import Control.Applicative
 import Control.Arrow (first,(&&&))
-import Data.Monoid
+-- import Data.Monoid
 import Data.Function (on)
 import GHC.Generics
+
+import Control.Newtype
 
 import Data.Void (Void) 
  
@@ -128,7 +130,13 @@ untrie3 tt = untrie2 . untrie tt
 -}
 
 
-{-# RULES "trie/untrie"   forall t. trie (untrie t) = t #-}
+-- {-# RULES "trie/untrie"   forall t. trie (untrie t) = t #-}
+
+--     warning: [-Winline-rule-shadowing] …
+--     Rule "trie/untrie" may never fire
+--       because rule "Class op untrie" for ‘untrie’ might fire first
+--     Probable fix: add phase [n] or [~n] to the competing rule
+
 
 -- Don't include the dual rule:
 --   "untrie/trie"   forall f. untrie (trie f) = f
@@ -179,16 +187,27 @@ inTrie3 = untrie ~> inTrie2
 
 instance HasTrie Void where
   -- As suggested by Audun Skaugen
-  data Void :->: a = VoidTrie 
+  data Void :->: a = VoidTrie
   trie _ = VoidTrie
-  untrie VoidTrie = \case 
+  untrie VoidTrie = \ _ -> error "untrie VoidTrie"
+                    -- \case  -- needs EmptyCase
   enumerate VoidTrie = []
+
+instance Newtype (Void :->: a) where
+  type O (Void :->: a) = ()
+  pack () = VoidTrie
+  unpack VoidTrie = ()
 
 instance HasTrie () where
   newtype () :->: a = UnitTrie a
   trie f = UnitTrie (f ())
   untrie (UnitTrie a) = \ () -> a
   enumerate (UnitTrie a) = [((),a)]
+
+instance Newtype (() :->: a) where
+  type O (() :->: a) = a
+  pack a = UnitTrie a
+  unpack (UnitTrie a) = a
 
 -- Proofs of inverse properties:
 
@@ -225,6 +244,11 @@ instance HasTrie Bool where
   untrie (BoolTrie f t) = if' f t
   enumerate (BoolTrie f t) = [(False,f),(True,t)]
 
+instance Newtype (Bool :->: a) where
+  type O (Bool :->: a) = (a,a)
+  pack (a,a') = BoolTrie a a'
+  unpack (BoolTrie a a') = (a,a')
+
 -- | Conditional with boolean last.
 -- Spec: @if' (f False) (f True) == f@
 if' :: x -> x -> Bool -> x
@@ -255,6 +279,11 @@ instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
   trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
   untrie (EitherTrie s t) = either (untrie s) (untrie t)
   enumerate (EitherTrie s t) = enum' Left s `weave` enum' Right t
+
+instance Newtype (Either a b :->: x) where
+  type O (Either a b :->: x) = (a :->: x, b :->: x)
+  pack (f,g) = EitherTrie f g
+  unpack (EitherTrie f g) = (f,g)
 
 enum' :: (HasTrie a) => (a -> a') -> (a :->: b) -> [(a', b)]
 enum' f = (fmap.first) f . enumerate
@@ -294,6 +323,11 @@ instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
   untrie (PairTrie t) = uncurry (untrie .  untrie t)
   enumerate (PairTrie tt) =
     [ ((a,b),x) | (a,t) <- enumerate tt , (b,x) <- enumerate t ]
+
+instance Newtype ((a,b) :->: x) where
+  type O ((a,b) :->: x) = a :->: b :->: x
+  pack abx = PairTrie abx
+  unpack (PairTrie abx) = abx
 
 {-
     untrie (trie f)
@@ -563,7 +597,8 @@ f1' = memo f1
 instance HasTrie (V1 x) where
   data (V1 x :->: b) = V1Trie 
   trie _ = V1Trie 
-  untrie V1Trie = \case 
+  untrie V1Trie = \ _ -> error "untrie V1Trie"
+                  -- \case  -- needs EmptyCase
   enumerate V1Trie = [] 
 
 -- | just like @()@ 
