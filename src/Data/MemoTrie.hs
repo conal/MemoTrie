@@ -42,7 +42,7 @@
 -- see @examples/Generic.hs@, which can be run with: 
 -- 
 -- @
--- $ cabal configure -fexamples && cabal run generic
+-- cabal configure -fexamples && cabal run generic
 -- @ 
 -- 
 -- 
@@ -640,6 +640,7 @@ instance (HasTrie (f x)) => HasTrie (M1 i t f x) where
 -- "unlifted" generic representation. (i.e. is a unary type constructor). 
 type Reg a = Rep a () 
 
+-- | 'Generic'-friendly default for 'trie'
 trieGeneric :: (Generic a, HasTrie (Reg a))
             => ((Reg a :->: b) -> (a :->: b))
             -> (a -> b)
@@ -647,6 +648,7 @@ trieGeneric :: (Generic a, HasTrie (Reg a))
 trieGeneric theConstructor f = theConstructor (trie (f . to))
 {-# INLINEABLE trieGeneric #-}
 
+-- | 'Generic'-friendly default for 'untrie'
 untrieGeneric :: (Generic a, HasTrie (Reg a))
               => ((a :->: b) -> (Reg a :->: b))
               -> (a :->: b)
@@ -654,6 +656,7 @@ untrieGeneric :: (Generic a, HasTrie (Reg a))
 untrieGeneric theDestructor t = \a -> (untrie (theDestructor t)) (from a)
 {-# INLINEABLE untrieGeneric #-}
 
+-- | 'Generic'-friendly default for 'enumerate'
 enumerateGeneric :: (Generic a, HasTrie (Reg a))
                  => ((a :->: b) -> (Reg a :->: b))
                  -> (a :->: b)
