@@ -37,6 +37,7 @@ Library
                   , newtype-generics >= 0.4
   else
      Build-Depends: base <4.8.0.0, void
+                  , newtype-generics >= 0.4
 
   Exposed-Modules:     
                      Data.MemoTrie
