@@ -64,9 +64,13 @@ module Data.MemoTrie
 import Data.Bits
 import Data.Word
 import Data.Int
--- import Control.Applicative
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 import Control.Arrow (first,(&&&))
--- import Data.Monoid
+#if !MIN_VERSION_base(4,8,0)
+import Data.Monoid
+#endif
 import Data.Function (on)
 import GHC.Generics
 
