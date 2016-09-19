@@ -55,12 +55,14 @@ module Data.MemoTrie
   , memo, memo2, memo3, mup
   , inTrie, inTrie2, inTrie3
   -- , untrieBits
-  , trieGeneric, untrieGeneric, enumerateGeneric, Reg   
+  , trieGeneric, untrieGeneric, enumerateGeneric, Reg
+  , memoFix
   ) where
 
 -- Export the parts of HasTrie separately in order to get the associated data
 -- type constructors, so I can define instances of other classes on them.
 
+import Data.Function (fix)
 import Data.Bits
 import Data.Word
 import Data.Int
@@ -167,6 +169,42 @@ mup mem f = memo (mem . f)
 
 memo2 = mup memo
 memo3 = mup memo2
+
+-- | Memoizing recursion. Use like `fix`.
+memoFix :: HasTrie a => ((a -> b) -> (a -> b)) -> (a -> b)
+memoFix h = fix (memo . h)
+
+#if 0
+-- Equivalently,
+
+memoFix h = fix (\ f' -> memo (h f'))
+
+memoFix h = f'
+  where f' = memo (h f')
+
+memoFix h = f'
+ where
+   f' = memo f
+   f  = h f'
+#endif
+
+#if 0
+-- Example
+
+fibF :: (Integer -> Integer) -> (Integer -> Integer)
+fibF _ 0 = 1
+fibF _ 1 = 1
+fibF f n = f (n-1) + f (n-2)
+
+fib :: Integer -> Integer
+fib = fix fibF
+
+fib' :: Integer -> Integer
+fib' = memoFix fibF
+
+-- Try fib 30 vs fib' 30
+#endif
+
 
 -- | Apply a unary function inside of a trie
 inTrie :: (HasTrie a, HasTrie c) =>
@@ -685,4 +723,3 @@ dropSum s = case s of
 liftSum :: Either (f a) (g a) -> (f :+: g) a 
 liftSum = either L1 R1
 {-# INLINEABLE liftSum #-}
-
