@@ -9,7 +9,7 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Data.MemoTrie
--- Copyright   :  (c) Conal Elliott 2008-2012
+-- Copyright   :  (c) Conal Elliott 2008-2016
 -- License     :  BSD3
 -- 
 -- Maintainer  :  conal@conal.net
