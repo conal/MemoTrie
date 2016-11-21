@@ -1,6 +1,9 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables, CPP #-}
-{-# LANGUAGE StandaloneDeriving, FlexibleInstances #-} 
-{-# LANGUAGE DefaultSignatures, FlexibleContexts, LambdaCase #-}
+{-# LANGUAGE StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE DefaultSignatures, FlexibleContexts, LambdaCase, DeriveGeneric #-}
+#if defined(__GLASGOW_HASKELL__) && (__GLASGOW_HASKELL__ >= 708)
+{-# LANGUAGE EmptyCase #-}
+#endif
 {-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
@@ -32,11 +35,7 @@
 --            | NamedColor String 
 --  deriving ('Generic') 
 -- 
--- instance HasTrie Color where
---   newtype (Color :->: b) = ColorTrie { unColorTrie :: 'Reg' Color :->: b } 
---   trie = 'trieGeneric' ColorTrie 
---   untrie = 'untrieGeneric' unColorTrie
---   enumerate = 'enumerateGeneric' unColorTrie
+-- instance HasTrie Color
 -- @
 -- 
 -- see @examples/Generic.hs@, which can be run with: 
@@ -50,12 +49,12 @@
 
 module Data.MemoTrie
   ( HasTrie(..), (:->:)(..)
+  , trie, untrie, enumerate
   , domain, idTrie, (@.@)
   -- , trie2, trie3, untrie2, untrie3
   , memo, memo2, memo3, mup
   , inTrie, inTrie2, inTrie3
   -- , untrieBits
-  , trieGeneric, untrieGeneric, enumerateGeneric, Reg
   , memoFix
   ) where
 
@@ -76,32 +75,59 @@ import Data.Monoid
 import Data.Function (on)
 import GHC.Generics
 
-import Control.Newtype
-
 import Data.Void (Void) 
  
 -- import Prelude hiding (id,(.))
 -- import Control.Category
 -- import Control.Arrow
 
-infixr 0 :->:
+infixr 0 :->:, :->, :->>
+newtype (:->:) a b = Trie {getTrie :: a :-> b} deriving (Generic)
 
 -- | Mapping from all elements of @a@ to the results of some function
 class HasTrie a where
     -- | Representation of trie with domain type @a@
-    data (:->:) a :: * -> *
+    type (:->) a b :: *
+    type (:->) a b = Rep a :->> b
     -- | Create the trie for the entire domain of a function
-    trie   :: (a  ->  b) -> (a :->: b)
+    trie'   :: (a  ->  b) -> (a :-> b)
+    default trie' :: (Generic a, GHasTrie (Rep a), (a :-> b) ~ (Rep a :->> b))
+                  => (a -> b) -> (a :-> b)
+    trie' f = trie'' (f . (to :: Rep a () -> a))
     -- | Convert a trie to a function, i.e., access a field of the trie
-    untrie :: (a :->: b) -> (a  ->  b)
+    untrie' :: (a :-> b) -> (a  ->  b)
+    default untrie' :: (Generic a, GHasTrie (Rep a), (a :-> b) ~ (Rep a :->> b))
+                    => (a :-> b) -> (a -> b)
+    untrie' q = untrie'' q . (from :: a -> Rep a ())
     -- | List the trie elements.  Order of keys (@:: a@) is always the same.
-    enumerate :: (a :->: b) -> [(a,b)]
+    enumerate' :: (a :-> b) -> [(a,b)]
+    default enumerate' :: (Generic a, GHasTrie (Rep a), (a :-> b) ~ (Rep a :->> b))
+                       => (a :-> b) -> [(a,b)]
+    enumerate' = map (first (to :: Rep a () -> a)) . enumerate''
+
+class GHasTrie f where
+    -- | Representation of trie with domain type @a@
+    data (:->>) (f :: * -> *) :: * -> *
+    -- | Create the trie for the entire domain of a function
+    trie''   :: (f a -> b) -> (f :->> b)
+    -- | Convert a trie to a function, i.e., access a field of the trie
+    untrie'' :: (f :->> b) -> (f a -> b)
+    -- | List the trie elements.  Order of keys (@:: a@) is always the same.
+    enumerate'' :: (f :->> b) -> [(f a,b)]
+
+-- | Create the trie for the entire domain of a function
+trie   :: HasTrie a => (a -> b) -> (a :->: b)
+trie = Trie . trie'
+-- | Convert a trie to a function, i.e., access a field of the trie
+untrie :: HasTrie a => (a :->: b) -> (a  ->  b)
+untrie = untrie' . getTrie
+-- | List the trie elements.  Order of keys (@:: a@) is always the same.
+enumerate :: HasTrie a => (a :->: b) -> [(a,b)]
+enumerate = enumerate' . getTrie
 
 -- | Domain elements of a trie
 domain :: HasTrie a => [a]
-domain = map fst (enumerate (trie (const oops)))
- where
-   oops = error "Data.MemoTrie.domain: range element evaluated."
+domain = map fst (enumerate (trie (const ())))
 
 -- Hm: domain :: [Bool] doesn't produce any output.
 
@@ -205,7 +231,6 @@ fib' = memoFix fibF
 -- Try fib 30 vs fib' 30
 #endif
 
-
 -- | Apply a unary function inside of a trie
 inTrie :: (HasTrie a, HasTrie c) =>
           ((a  ->  b) -> (c  ->  d))
@@ -227,214 +252,29 @@ inTrie3 = untrie ~> inTrie2
 
 ---- Instances
 
-instance HasTrie Void where
-  -- As suggested by Audun Skaugen
-  data Void :->: a = VoidTrie
-  trie _ = VoidTrie
-  untrie VoidTrie = \ _ -> error "untrie VoidTrie"
-                    -- \case  -- needs EmptyCase
-  enumerate VoidTrie = []
+instance HasTrie Void
+instance HasTrie ()
+instance HasTrie Bool
+instance (HasTrie a, HasTrie b) => HasTrie (Either a b)
+instance (HasTrie a, HasTrie b) => HasTrie (a,b)
+instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c)
+instance (HasTrie a, HasTrie b, HasTrie c, HasTrie d) => HasTrie (a,b,c,d)
+instance (HasTrie a, HasTrie b, HasTrie c, HasTrie d, HasTrie e) => HasTrie (a,b,c,d,e)
+instance HasTrie x => HasTrie [x]
+instance HasTrie (a :-> b) => HasTrie (a :->: b)
 
-instance Newtype (Void :->: a) where
-  type O (Void :->: a) = ()
-  pack () = VoidTrie
-  unpack VoidTrie = ()
-
-instance HasTrie () where
-  newtype () :->: a = UnitTrie a
-  trie f = UnitTrie (f ())
-  untrie (UnitTrie a) = \ () -> a
-  enumerate (UnitTrie a) = [((),a)]
-
-instance Newtype (() :->: a) where
-  type O (() :->: a) = a
-  pack a = UnitTrie a
-  unpack (UnitTrie a) = a
-
--- Proofs of inverse properties:
-
-{-
-    untrie (trie f)
-      == { trie def }
-    untrie (UnitTrie (f ()))
-      == { untrie def }
-    \ () -> (f ())
-      == { const-unit }
-    f   
-
-    trie (untrie (UnitTrie a))
-      == { untrie def }
-    trie (\ () -> a)
-      == { trie def }
-    UnitTrie ((\ () -> a) ())
-      == { beta-reduction }
-    UnitTrie a
-
-Oops -- the last step of the first direction is bogus when f is non-strict.
-Can be fixed by using @const a@ in place of @\ () -> a@, but I can't do
-the same for other types, like integers or sums.
-
-All of these proofs have this same bug, unless we restrict ourselves to
-memoizing hyper-strict functions.
-
--}
-
-
-instance HasTrie Bool where
-  data Bool :->: x = BoolTrie x x
-  trie f = BoolTrie (f False) (f True)
-  untrie (BoolTrie f t) = if' f t
-  enumerate (BoolTrie f t) = [(False,f),(True,t)]
-
-instance Newtype (Bool :->: a) where
-  type O (Bool :->: a) = (a,a)
-  pack (a,a') = BoolTrie a a'
-  unpack (BoolTrie a a') = (a,a')
-
--- | Conditional with boolean last.
--- Spec: @if' (f False) (f True) == f@
-if' :: x -> x -> Bool -> x
-if' t _ False = t
-if' _ e True  = e
-
-{-
-    untrie (trie f)
-      == { trie def }
-    untrie (BoolTrie (f False) (f True))
-      == { untrie def }
-    if' (f False) (f True)
-      == { if' spec }
-    f
-
-    trie (untrie (BoolTrie f t))
-      == { untrie def }
-    trie (if' f t)
-      == { trie def }
-    BoolTrie (if' f t False) (if' f t True)
-      == { if' spec }
-    BoolTrie f t
--}
-
-
-instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
-  data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
-  trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
-  untrie (EitherTrie s t) = either (untrie s) (untrie t)
-  enumerate (EitherTrie s t) = enum' Left s `weave` enum' Right t
-
-instance Newtype (Either a b :->: x) where
-  type O (Either a b :->: x) = (a :->: x, b :->: x)
-  pack (f,g) = EitherTrie f g
-  unpack (EitherTrie f g) = (f,g)
-
-enum' :: (HasTrie a) => (a -> a') -> (a :->: b) -> [(a', b)]
-enum' f = (fmap.first) f . enumerate
-
-weave :: [a] -> [a] -> [a]
-[] `weave` as = as
-as `weave` [] = as
-(a:as) `weave` bs = a : (bs `weave` as)
-
-{-
-    untrie (trie f)
-       == { trie def }
-    untrie (EitherTrie (trie (f . Left)) (trie (f . Right)))
-       == { untrie def }
-    either (untrie (trie (f . Left))) (untrie (trie (f . Right)))
-       == { untrie . trie }
-    either (f . Left) (f . Right)
-       == { either }
-    f
-
-    trie (untrie (EitherTrie s t))
-       == { untrie def }
-    trie (either (untrie s) (untrie t))
-       == { trie def }
-    EitherTrie (trie (either (untrie s) (untrie t) . Left))
-               (trie (either (untrie s) (untrie t) . Right))
-       == { either }
-    EitherTrie (trie (untrie s)) (trie (untrie t))
-       == { trie . untrie }
-    EitherTrie s t
--}
-
-
-instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
-  newtype (a,b) :->: x = PairTrie (a :->: (b :->: x))
-  trie f = PairTrie (trie (trie . curry f))
-  untrie (PairTrie t) = uncurry (untrie .  untrie t)
-  enumerate (PairTrie tt) =
-    [ ((a,b),x) | (a,t) <- enumerate tt , (b,x) <- enumerate t ]
-
-instance Newtype ((a,b) :->: x) where
-  type O ((a,b) :->: x) = a :->: b :->: x
-  pack abx = PairTrie abx
-  unpack (PairTrie abx) = abx
-
-{-
-    untrie (trie f)
-      == { trie def }
-    untrie (PairTrie (trie (trie . curry f)))
-      == { untrie def }
-    uncurry (untrie . untrie (trie (trie . curry f)))
-      == { untrie . trie }
-    uncurry (untrie . trie . curry f)
-      == { untrie . untrie }
-    uncurry (curry f)
-      == { uncurry . curry }
-    f
-
-    trie (untrie (PairTrie t))
-      == { untrie def }
-    trie (uncurry (untrie .  untrie t))
-      == { trie def }
-    PairTrie (trie (trie . curry (uncurry (untrie .  untrie t))))
-      == { curry . uncurry }
-    PairTrie (trie (trie . untrie .  untrie t))
-      == { trie . untrie }
-    PairTrie (trie (untrie t))
-      == { trie . untrie }
-    PairTrie t
--}
-
-instance (HasTrie a, HasTrie b, HasTrie c) => HasTrie (a,b,c) where
-  newtype (a,b,c) :->: x = TripleTrie (((a,b),c) :->: x)
-  trie f = TripleTrie (trie (f . trip))
-  untrie (TripleTrie t) = untrie t . detrip
-  enumerate (TripleTrie t) = enum' trip t
-
-trip :: ((a,b),c) -> (a,b,c)
-trip ((a,b),c) = (a,b,c)
-
-detrip :: (a,b,c) -> ((a,b),c)
-detrip (a,b,c) = ((a,b),c)
-
-
-instance HasTrie x => HasTrie [x] where
-  newtype [x] :->: a = ListTrie (Either () (x,[x]) :->: a)
-  trie f = ListTrie (trie (f . list))
-  untrie (ListTrie t) = untrie t . delist
-  enumerate (ListTrie t) = enum' list t
-
-list :: Either () (x,[x]) -> [x]
-list = either (const []) (uncurry (:))
-
-delist :: [x] -> Either () (x,[x])
-delist []     = Left ()
-delist (x:xs) = Right (x,xs)
-
-#define WordInstance(Type,TrieType)\
+#define WordInstance(Type)\
 instance HasTrie Type where \
-  newtype Type :->: a = TrieType ([Bool] :->: a);\
-  trie f = TrieType (trie (f . unbits));\
-  untrie (TrieType t) = untrie t . bits;\
-  enumerate (TrieType t) = enum' unbits t
+  type Type :-> a = ([Bool] :-> a);\
+  trie' f = trie' (f . unbits);\
+  untrie' t = untrie' t . bits;\
+  enumerate' t = enum' unbits t
 
-WordInstance(Word,WordTrie)
-WordInstance(Word8,Word8Trie)
-WordInstance(Word16,Word16Trie)
-WordInstance(Word32,Word32Trie)
-WordInstance(Word64,Word64Trie)
+WordInstance(Word)
+WordInstance(Word8)
+WordInstance(Word16)
+WordInstance(Word32)
+WordInstance(Word64)
 
 -- instance HasTrie Word where
 --   newtype Word :->: a = WordTrie ([Bool] :->: a)
@@ -459,38 +299,37 @@ unbits [] = 0
 unbits (x:xs) = unbit x .|. shiftL (unbits xs) 1
 
 instance HasTrie Char where
-  newtype Char :->: a = CharTrie (Int :->: a)
-  untrie (CharTrie t) n = untrie t (fromEnum n)
-  trie f = CharTrie (trie (f . toEnum))
-  enumerate (CharTrie t) = enum' toEnum t
+  type Char :-> a = Int :-> a
+  untrie' t n = untrie' t (fromEnum n)
+  trie' f = trie' (f . toEnum)
+  enumerate' t = enum' toEnum t
 
 -- Although Int is a Bits instance, we can't use bits directly for
 -- memoizing, because the "bits" function gives an infinite result, since
 -- shiftR (-1) 1 == -1.  Instead, convert between Int and Word, and use
 -- a Word trie.  Any Integral type can be handled similarly.
 
-#define IntInstance(IntType,WordType,TrieType) \
+#define IntInstance(IntType,WordType) \
 instance HasTrie IntType where \
-  newtype IntType :->: a = TrieType (WordType :->: a); \
-  untrie (TrieType t) n = untrie t (fromIntegral n); \
-  trie f = TrieType (trie (f . fromIntegral)); \
-  enumerate (TrieType t) = enum' fromIntegral t
+  type IntType :-> a = WordType :-> a;\
+  untrie' t n = untrie' t (fromIntegral n :: WordType); \
+  trie' f = trie' (f . (fromIntegral :: WordType -> IntType)); \
+  enumerate' t = enum' (fromIntegral :: WordType -> IntType) t
 
-IntInstance(Int,Word,IntTrie)
-IntInstance(Int8,Word8,Int8Trie)
-IntInstance(Int16,Word16,Int16Trie)
-IntInstance(Int32,Word32,Int32Trie)
-IntInstance(Int64,Word64,Int64Trie)
+IntInstance(Int,Word)
+IntInstance(Int8,Word8)
+IntInstance(Int16,Word16)
+IntInstance(Int32,Word32)
+IntInstance(Int64,Word64)
 
 -- For unbounded integers, we don't have a corresponding Word type, so
 -- extract the sign bit.
 
 instance HasTrie Integer where
-  newtype Integer :->: a = IntegerTrie ((Bool,[Bool]) :->: a)
-  trie f = IntegerTrie (trie (f . unbitsZ))
-  untrie (IntegerTrie t) = untrie t . bitsZ
-  enumerate (IntegerTrie t) = enum' unbitsZ t
-
+  type Integer :-> a = (Bool,[Bool]) :-> a
+  trie' f = trie' (f . unbitsZ)
+  untrie' t = untrie' t . bitsZ
+  enumerate' t = enum' unbitsZ t
 
 unbitsZ :: (Num n, Bits n) => (Bool,[Bool]) -> n
 unbitsZ (positive,bs) = sig (unbits bs)
@@ -502,7 +341,6 @@ bitsZ :: (Num n, Ord n, Bits n) => n -> (Bool,[Bool])
 bitsZ = (>= 0) &&& (bits . abs)
 
 -- TODO: make these definitions more systematic.
-
 
 ---- Instances
 
@@ -624,8 +462,10 @@ necessary but disallowed `HasTrie` constraints on the domain type.
 -- Matt Hellige's notation for @argument f . result g@.
 -- <http://matt.immute.net/content/pointless-fun>
 
+
 (~>) :: (a' -> a) -> (b -> b') -> ((a -> b) -> (a' -> b'))
 g ~> f = (f .) . (. g)
+
 
 {-
 -- Examples
@@ -635,91 +475,161 @@ f1 n = n + n
 f1' = memo f1
 -}
 
+-- We INLINE all the generic implementations in the hope that
+-- GHC will produce instances like the ones we would write
+-- by hand. We need to use a data family here to prevent the
+-- type checker from looping on recursive types.
+
 -- | just like @void@ 
-instance HasTrie (V1 x) where
-  data (V1 x :->: b) = V1Trie 
-  trie _ = V1Trie 
-  untrie V1Trie = \ _ -> error "untrie V1Trie"
-                  -- \case  -- needs EmptyCase
-  enumerate V1Trie = [] 
+instance GHasTrie V1 where
+  data V1 :->> b = V1Trie
+  trie'' _ = V1Trie
+#if defined(__GLASGOW_HASKELL__) && (__GLASGOW_HASKELL__ >= 708)
+  untrie'' V1Trie = \ x -> case x of
+#else
+  untrie'' V1Trie = \ x -> x `seq` error "untrie V1Trie"
+#endif
+  enumerate'' V1Trie = [] 
+  {-# INLINE trie'' #-}
+  {-# INLINE untrie'' #-}
+  {-# INLINE enumerate'' #-}
 
 -- | just like @()@ 
-instance HasTrie (U1 x) where
-  data (U1 x :->: b) = U1Trie b 
-  trie f = U1Trie (f U1)
-  untrie (U1Trie b) = \U1 -> b
-  enumerate (U1Trie b) = [(U1, b)] 
+instance GHasTrie U1 where
+  data U1 :->> b = U1Trie b
+  trie'' f = U1Trie $ f U1
+  untrie'' (U1Trie b) = \U1 -> b
+  enumerate'' (U1Trie b) = [(U1, b)] 
+  {-# INLINE trie'' #-}
+  {-# INLINE untrie'' #-}
+  {-# INLINE enumerate'' #-}
 
--- | wraps @Either (f x) (g x)@ 
-instance (HasTrie (f x), HasTrie (g x)) => HasTrie ((f :+: g) x) where
-  newtype ((f :+: g) x :->: b) = EitherTrie1 (Either (f x) (g x) :->: b)
-  trie f = EitherTrie1 (trie (f . liftSum))
-  untrie (EitherTrie1 t) = (untrie t) . dropSum
-  enumerate (EitherTrie1 t) = enum' liftSum t
+-- Proofs of inverse properties:
 
--- | wraps @(f x, g x)@ 
-instance (HasTrie (f x), HasTrie (g x)) => HasTrie ((f :*: g) x) where
-  newtype ((f :*: g) x :->: b) = PairTrie1 ((f x, g x) :->: b)
-  trie f = PairTrie1 (trie (f . liftProduct))
-  untrie (PairTrie1 t) = (untrie t) . dropProduct 
-  enumerate (PairTrie1 t) = enum' liftProduct t
+{-
+    untrie (trie f)
+      == { trie def }
+    untrie (U1Trie (f U1))
+      == { untrie def }
+    \ U1 -> (f U1)
+      == { const-unit }
+    f   
 
--- | wraps @a@ 
-instance (HasTrie a) => HasTrie (K1 i a x) where
-  data (K1 i a x :->: b) = K1Trie (a :->: b) 
-  trie f = K1Trie (trie (f . K1)) 
-  untrie (K1Trie t) = \(K1 a) -> (untrie t) a 
-  enumerate (K1Trie t) = enum' K1 t 
+    trie (untrie (U1Trie a))
+      == { untrie def }
+    trie (\ U1 -> a)
+      == { trie def }
+    U1Trie ((\ U1 -> a) ())
+      == { beta-reduction }
+    U1Trie a
 
--- | wraps @f x@ 
-instance (HasTrie (f x)) => HasTrie (M1 i t f x) where
-  data (M1 i t f x :->: b) = M1Trie (f x :->: b) 
-  trie f = M1Trie (trie (f . M1)) 
-  untrie (M1Trie t) = \(M1 a) -> (untrie t) a  
-  enumerate (M1Trie t) = enum' M1 t 
+Oops -- the last step of the first direction is bogus when f is non-strict.
+Can be fixed by using @const a@ in place of @\ U1 -> a@, but I can't do
+the same for other types, like integers or sums.
 
--- | the data type in a __reg__ular form. 
--- "unlifted" generic representation. (i.e. is a unary type constructor). 
-type Reg a = Rep a () 
+All of these proofs have this same bug, unless we restrict ourselves to
+memoizing hyper-strict functions.
 
--- | 'Generic'-friendly default for 'trie'
-trieGeneric :: (Generic a, HasTrie (Reg a))
-            => ((Reg a :->: b) -> (a :->: b))
-            -> (a -> b)
-            -> (a :->: b)
-trieGeneric theConstructor f = theConstructor (trie (f . to))
-{-# INLINEABLE trieGeneric #-}
+-}
 
--- | 'Generic'-friendly default for 'untrie'
-untrieGeneric :: (Generic a, HasTrie (Reg a))
-              => ((a :->: b) -> (Reg a :->: b))
-              -> (a :->: b)
-              -> (a -> b)
-untrieGeneric theDestructor t = \a -> (untrie (theDestructor t)) (from a)
-{-# INLINEABLE untrieGeneric #-}
+instance (GHasTrie f, GHasTrie g) => GHasTrie (f :+: g) where
+  data (f :+: g) :->> b = EitherTrie (f :->> b) (g :->> b)
+  trie'' f = EitherTrie (trie'' (f . L1)) (trie'' (f . R1))
+  untrie'' (EitherTrie f _g) (L1 l) = untrie'' f l
+  untrie'' (EitherTrie _f g) (R1 r) = untrie'' g r
+  enumerate'' (EitherTrie s t) = enum'' L1 s `weave` enum'' R1 t
+  {-# INLINE trie'' #-}
+  {-# INLINE untrie'' #-}
+  {-# INLINE enumerate'' #-}
 
--- | 'Generic'-friendly default for 'enumerate'
-enumerateGeneric :: (Generic a, HasTrie (Reg a))
-                 => ((a :->: b) -> (Reg a :->: b))
-                 -> (a :->: b)
-                 -> [(a, b)]
-enumerateGeneric theDestructor t = enum' to (theDestructor t) 
-{-# INLINEABLE enumerateGeneric #-}
+enum' :: HasTrie a => (a -> a') -> (a :-> b) -> [(a', b)]
+enum' f = (fmap.first) f . enumerate'
 
-dropProduct :: (f :*: g) a -> (f a, g a) 
-dropProduct (a :*: b) = (a, b)
-{-# INLINEABLE dropProduct #-}
+enum'' :: GHasTrie f => (f a -> g a) -> (f :->> b) -> [(g a, b)]
+enum'' f = (fmap.first) f . enumerate''
 
-liftProduct :: (f a, g a) -> (f :*: g) a 
-liftProduct (a, b) = (a :*: b)
-{-# INLINEABLE liftProduct #-}
+weave :: [a] -> [a] -> [a]
+[] `weave` as = as
+as `weave` [] = as
+(a:as) `weave` bs = a : (bs `weave` as)
 
-dropSum :: (f :+: g) a -> Either (f a) (g a) 
-dropSum s = case s of 
-              L1 x -> Left x 
-              R1 x -> Right x 
-{-# INLINEABLE dropSum #-}
 
-liftSum :: Either (f a) (g a) -> (f :+: g) a 
-liftSum = either L1 R1
-{-# INLINEABLE liftSum #-}
+{-
+    untrie (trie f)
+       == { trie def }
+    untrie (EitherTrie (trie (f . L1)) (trie (f . R1)))
+       == { untrie def }
+    either (untrie (trie (f . L1))) (untrie (trie (f . R1)))
+       == { untrie . trie }
+    either (f . L1) (f . R1)
+       == { either }
+    f
+
+    trie (untrie (EitherTrie s t))
+       == { untrie def }
+    trie (either (untrie s) (untrie t))
+       == { trie def }
+    EitherTrie (trie (either (untrie s) (untrie t) . L1))
+               (trie (either (untrie s) (untrie t) . R1))
+       == { either }
+    EitherTrie (trie (untrie s)) (trie (untrie t))
+       == { trie . untrie }
+    EitherTrie s t
+-}
+
+
+
+instance (GHasTrie f, GHasTrie g) => GHasTrie (f :*: g) where
+  data (f :*: g) :->> b = ProductTrie (f :->> g :->> b)
+  trie'' f = ProductTrie $ trie'' (\x -> trie'' (\y -> f (x :*: y)))
+  untrie'' (ProductTrie t) = \(x :*: y) -> (untrie'' . untrie'' t) x y
+  enumerate'' (ProductTrie tt) = [((a :*: b), x) | (a, t) <- enumerate'' tt, (b, x) <- enumerate'' t]
+  {-# INLINE trie'' #-}
+  {-# INLINE untrie'' #-}
+  {-# INLINE enumerate'' #-}
+
+{-
+    -- Let curryP and uncurryP curry and uncurry :*:
+    untrie (trie f)
+      == { trie def }
+    untrie (ProductTrie (trie (trie . curryP f)))
+      == { untrie def }
+    uncurryP (untrie . untrie (trie (trie . curryP f)))
+      == { untrie . trie }
+    uncurryP (untrie . trie . curryP f)
+      == { untrie . untrie }
+    uncurryP (curryP f)
+      == { uncurryP . curryP }
+    f
+
+    trie (untrie (ProductTrie t))
+      == { untrie def }
+    trie (uncurryP (untrie .  untrie t))
+      == { trie def }
+    ProductTrie (trie (trie . curryP (uncurryP (untrie .  untrie t))))
+      == { curryP . uncurryP }
+    ProductTrie (trie (trie . untrie .  untrie t))
+      == { trie . untrie }
+    ProductTrie (trie (untrie t))
+      == { trie . untrie }
+    ProductTrie t
+-}
+
+
+instance HasTrie a => GHasTrie (K1 i a) where
+  data K1 i a :->> b = K1Trie (a :-> b)
+  trie'' f = K1Trie $ trie' (f . K1)
+  untrie'' (K1Trie t) = \(K1 a) -> (untrie' t) a 
+  enumerate'' (K1Trie t) = enum' K1 t
+  {-# INLINE trie'' #-}
+  {-# INLINE untrie'' #-}
+  {-# INLINE enumerate'' #-}
+
+instance GHasTrie f => GHasTrie (M1 i t f) where
+  data M1 i t f :->> b = M1Trie (f :->> b)
+  trie'' f = M1Trie $ trie'' (f . M1)
+  untrie'' (M1Trie t) = \(M1 a) -> (untrie'' t) a  
+  enumerate'' (M1Trie t) = enum'' M1 t 
+  {-# INLINE trie'' #-}
+  {-# INLINE untrie'' #-}
+  {-# INLINE enumerate'' #-}

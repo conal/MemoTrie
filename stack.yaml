@@ -2,4 +2,4 @@ flags: {}
 extra-deps:
 - MemoTrie-0.6.5
 - newtype-generics-0.4
-resolver: nightly-2016-07-18
+resolver: nightly-2016-11-19
