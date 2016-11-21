@@ -6,6 +6,7 @@ Stuff
 TAGS
 tags
 tarballs
+.stack-work/
 
 # Mac OS generates
 .DS_Store
