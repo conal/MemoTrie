@@ -315,6 +315,16 @@ if' _ e True  = e
     BoolTrie f t
 -}
 
+instance HasTrie a => HasTrie (Maybe a) where
+  data (:->:) (Maybe a) b = MaybeTrie b (a :->: b)
+  trie f = MaybeTrie (f Nothing) (trie (f . Just))
+  untrie (MaybeTrie nothing_val a_trie) = maybe nothing_val (untrie a_trie)
+  enumerate (MaybeTrie nothing_val a_trie) = (Nothing, nothing_val) : enum' Just a_trie
+
+instance Newtype (Maybe a :->: x) where
+  type O (Maybe a :->: x) = (x, a :->: x)
+  pack (a,f) = MaybeTrie a f
+  unpack (MaybeTrie a f) = (a,f)
 
 instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
   data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
