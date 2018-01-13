@@ -587,7 +587,12 @@ instance HasTrie a => Monad ((:->:) a) where
 
 instance (HasTrie a, Monoid b) => Monoid (a :->: b) where
   mempty  = trie mempty
+#if !MIN_VERSION_base(4,11,0)
   mappend = inTrie2 mappend
+#else
+instance (HasTrie a, Semigroup b) => Semigroup (a :->: b) where
+  (<>)    = inTrie2 (<>)
+#endif
 
 instance HasTrie a => Functor ((:->:) a) where
   fmap f = inTrie (fmap f)
