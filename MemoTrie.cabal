@@ -33,9 +33,9 @@ Library
   hs-Source-Dirs:      src
 
   if impl(ghc >= 7.10.0)
-     Build-Depends: base >=4.8.0.0 && <5, newtype-generics >= 0.4
+     Build-Depends: base >=4.8.0.0 && <5, newtype-generics >= 0.5.3
   else
-     Build-Depends: base <4.8.0.0, void, newtype-generics >= 0.4
+     Build-Depends: base <4.8.0.0, void, newtype-generics >= 0.5.3
 
   Exposed-Modules:     
                      Data.MemoTrie
