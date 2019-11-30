@@ -76,7 +76,7 @@ import Data.Monoid
 import Data.Function (on)
 import GHC.Generics
 
-import Control.Newtype
+import Control.Newtype.Generics
 
 import Data.Void (Void) 
  
