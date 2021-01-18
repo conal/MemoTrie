@@ -8,9 +8,6 @@ data Color = RGB Int Int Int
 
 instance HasTrie Color where
   newtype (Color :->: b) = ColorTrie { unColorTrie :: Reg Color :->: b } 
-  trie      = trieGeneric ColorTrie 
-  untrie    = untrieGeneric unColorTrie
-  enumerate = enumerateGeneric unColorTrie
 
 runColor (RGB r g b) = r + g + b
 runColor (NamedColor s) = length [1..10e7] 

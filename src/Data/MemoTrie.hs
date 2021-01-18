@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables, CPP #-}
-{-# LANGUAGE StandaloneDeriving, FlexibleInstances #-} 
-{-# LANGUAGE DefaultSignatures, FlexibleContexts, LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-} 
+{-# LANGUAGE DefaultSignatures, FlexibleContexts #-}
+{-# LANGUAGE QuantifiedConstraints, AllowAmbiguousTypes, UndecidableInstances #-} 
 {-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
@@ -75,6 +76,7 @@ import Data.Monoid
 #endif
 import Data.Function (on)
 import GHC.Generics
+import Data.Coerce
 
 import Control.Newtype.Generics
 
@@ -92,10 +94,24 @@ class HasTrie a where
     data (:->:) a :: * -> *
     -- | Create the trie for the entire domain of a function
     trie   :: (a  ->  b) -> (a :->: b)
+    default trie
+      :: (Coercible (Reg a :->: b) (a :->: b), Generic a, HasTrie (Reg a))
+      => (a -> b) -> (a :->: b)
+    trie = trieGeneric coerce
+
     -- | Convert a trie to a function, i.e., access a field of the trie
     untrie :: (a :->: b) -> (a  ->  b)
+    default untrie
+      :: (Coercible (a :->: b) (Reg a :->: b), Generic a, HasTrie (Reg a))
+      => (a :->: b) -> (a  ->  b)
+    untrie = untrieGeneric coerce
+    
     -- | List the trie elements.  Order of keys (@:: a@) is always the same.
     enumerate :: (a :->: b) -> [(a,b)]
+    default enumerate
+      :: (Coercible (a :->: b) (Reg a :->: b), Generic a, HasTrie (Reg a))
+      => (a :->: b) -> [(a,b)]
+    enumerate = enumerateGeneric coerce
 
 -- | Domain elements of a trie
 domain :: HasTrie a => [a]
