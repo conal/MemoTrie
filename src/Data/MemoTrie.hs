@@ -66,6 +66,7 @@ import Data.Function (fix)
 import Data.Bits
 import Data.Word
 import Data.Int
+import Numeric.Natural
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
 #endif
@@ -445,6 +446,7 @@ WordInstance(Word8,Word8Trie)
 WordInstance(Word16,Word16Trie)
 WordInstance(Word32,Word32Trie)
 WordInstance(Word64,Word64Trie)
+WordInstance(Natural,NaturalTrie)
 
 -- instance HasTrie Word where
 --   newtype Word :->: a = WordTrie ([Bool] :->: a)
