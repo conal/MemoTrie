@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs, TypeFamilies, TypeOperators, ScopedTypeVariables, CPP #-}
-{-# LANGUAGE StandaloneDeriving, FlexibleInstances #-} 
-{-# LANGUAGE DefaultSignatures, FlexibleContexts, LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-} 
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -Wall -fenable-rewrite-rules #-}
 
 -- ScopedTypeVariables works around a 6.10 bug.  The forall keyword is
@@ -62,7 +62,6 @@ module Data.MemoTrie
 -- Export the parts of HasTrie separately in order to get the associated data
 -- type constructors, so I can define instances of other classes on them.
 
-import Data.Function (fix)
 import Data.Bits
 import Data.Word
 import Data.Int
@@ -73,7 +72,7 @@ import Control.Arrow (first,(&&&))
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
 #endif
-import Data.Function (on)
+import Data.Function (fix, on)
 import GHC.Generics
 
 import Control.Newtype.Generics
@@ -660,7 +659,7 @@ instance HasTrie (V1 x) where
 
 -- | just like @()@ 
 instance HasTrie (U1 x) where
-  data (U1 x :->: b) = U1Trie b 
+  newtype (U1 x :->: b) = U1Trie b 
   trie f = U1Trie (f U1)
   untrie (U1Trie b) = \U1 -> b
   enumerate (U1Trie b) = [(U1, b)] 
@@ -669,28 +668,28 @@ instance HasTrie (U1 x) where
 instance (HasTrie (f x), HasTrie (g x)) => HasTrie ((f :+: g) x) where
   newtype ((f :+: g) x :->: b) = EitherTrie1 (Either (f x) (g x) :->: b)
   trie f = EitherTrie1 (trie (f . liftSum))
-  untrie (EitherTrie1 t) = (untrie t) . dropSum
+  untrie (EitherTrie1 t) = untrie t . dropSum
   enumerate (EitherTrie1 t) = enum' liftSum t
 
 -- | wraps @(f x, g x)@ 
 instance (HasTrie (f x), HasTrie (g x)) => HasTrie ((f :*: g) x) where
   newtype ((f :*: g) x :->: b) = PairTrie1 ((f x, g x) :->: b)
   trie f = PairTrie1 (trie (f . liftProduct))
-  untrie (PairTrie1 t) = (untrie t) . dropProduct 
+  untrie (PairTrie1 t) = untrie t . dropProduct 
   enumerate (PairTrie1 t) = enum' liftProduct t
 
 -- | wraps @a@ 
 instance (HasTrie a) => HasTrie (K1 i a x) where
-  data (K1 i a x :->: b) = K1Trie (a :->: b) 
+  newtype (K1 i a x :->: b) = K1Trie (a :->: b) 
   trie f = K1Trie (trie (f . K1)) 
-  untrie (K1Trie t) = \(K1 a) -> (untrie t) a 
+  untrie (K1Trie t) = \(K1 a) -> untrie t a 
   enumerate (K1Trie t) = enum' K1 t 
 
 -- | wraps @f x@ 
 instance (HasTrie (f x)) => HasTrie (M1 i t f x) where
-  data (M1 i t f x :->: b) = M1Trie (f x :->: b) 
+  newtype (M1 i t f x :->: b) = M1Trie (f x :->: b) 
   trie f = M1Trie (trie (f . M1)) 
-  untrie (M1Trie t) = \(M1 a) -> (untrie t) a  
+  untrie (M1Trie t) = \(M1 a) -> untrie t a  
   enumerate (M1Trie t) = enum' M1 t 
 
 -- | the data type in a __reg__ular form. 
@@ -710,7 +709,7 @@ untrieGeneric :: (Generic a, HasTrie (Reg a))
               => ((a :->: b) -> (Reg a :->: b))
               -> (a :->: b)
               -> (a -> b)
-untrieGeneric theDestructor t = \a -> (untrie (theDestructor t)) (from a)
+untrieGeneric theDestructor t = \a -> untrie (theDestructor t) (from a)
 {-# INLINEABLE untrieGeneric #-}
 
 -- | 'Generic'-friendly default for 'enumerate'
@@ -726,7 +725,7 @@ dropProduct (a :*: b) = (a, b)
 {-# INLINEABLE dropProduct #-}
 
 liftProduct :: (f a, g a) -> (f :*: g) a 
-liftProduct (a, b) = (a :*: b)
+liftProduct (a, b) = a :*: b
 {-# INLINEABLE liftProduct #-}
 
 dropSum :: (f :+: g) a -> Either (f a) (g a) 
