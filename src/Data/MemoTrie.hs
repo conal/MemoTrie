@@ -75,8 +75,6 @@ import Data.Monoid
 import Data.Function (fix, on)
 import GHC.Generics
 
-import Control.Newtype.Generics
-
 import Data.Void (Void) 
  
 -- import Prelude hiding (id,(.))
@@ -234,21 +232,11 @@ instance HasTrie Void where
                     -- \case  -- needs EmptyCase
   enumerate VoidTrie = []
 
-instance Newtype (Void :->: a) where
-  type O (Void :->: a) = ()
-  pack () = VoidTrie
-  unpack VoidTrie = ()
-
 instance HasTrie () where
   newtype () :->: a = UnitTrie a
   trie f = UnitTrie (f ())
   untrie (UnitTrie a) = \ () -> a
   enumerate (UnitTrie a) = [((),a)]
-
-instance Newtype (() :->: a) where
-  type O (() :->: a) = a
-  pack a = UnitTrie a
-  unpack (UnitTrie a) = a
 
 -- Proofs of inverse properties:
 
@@ -285,11 +273,6 @@ instance HasTrie Bool where
   untrie (BoolTrie f t) = if' f t
   enumerate (BoolTrie f t) = [(False,f),(True,t)]
 
-instance Newtype (Bool :->: a) where
-  type O (Bool :->: a) = (a,a)
-  pack (a,a') = BoolTrie a a'
-  unpack (BoolTrie a a') = (a,a')
-
 -- | Conditional with boolean last.
 -- Spec: @if' (f False) (f True) == f@
 if' :: x -> x -> Bool -> x
@@ -320,21 +303,11 @@ instance HasTrie a => HasTrie (Maybe a) where
   untrie (MaybeTrie nothing_val a_trie) = maybe nothing_val (untrie a_trie)
   enumerate (MaybeTrie nothing_val a_trie) = (Nothing, nothing_val) : enum' Just a_trie
 
-instance Newtype (Maybe a :->: x) where
-  type O (Maybe a :->: x) = (x, a :->: x)
-  pack (a,f) = MaybeTrie a f
-  unpack (MaybeTrie a f) = (a,f)
-
 instance (HasTrie a, HasTrie b) => HasTrie (Either a b) where
   data (Either a b) :->: x = EitherTrie (a :->: x) (b :->: x)
   trie f = EitherTrie (trie (f . Left)) (trie (f . Right))
   untrie (EitherTrie s t) = either (untrie s) (untrie t)
   enumerate (EitherTrie s t) = enum' Left s `weave` enum' Right t
-
-instance Newtype (Either a b :->: x) where
-  type O (Either a b :->: x) = (a :->: x, b :->: x)
-  pack (f,g) = EitherTrie f g
-  unpack (EitherTrie f g) = (f,g)
 
 enum' :: (HasTrie a) => (a -> a') -> (a :->: b) -> [(a', b)]
 enum' f = (fmap.first) f . enumerate
@@ -374,11 +347,6 @@ instance (HasTrie a, HasTrie b) => HasTrie (a,b) where
   untrie (PairTrie t) = uncurry (untrie .  untrie t)
   enumerate (PairTrie tt) =
     [ ((a,b),x) | (a,t) <- enumerate tt , (b,x) <- enumerate t ]
-
-instance Newtype ((a,b) :->: x) where
-  type O ((a,b) :->: x) = a :->: b :->: x
-  pack abx = PairTrie abx
-  unpack (PairTrie abx) = abx
 
 {-
     untrie (trie f)
