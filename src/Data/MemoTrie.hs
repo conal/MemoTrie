@@ -601,7 +601,9 @@ instance HasTrie a => Applicative ((:->:) a) where
   (<*>)  = inTrie2 (<*>)
 
 instance HasTrie a => Monad ((:->:) a) where
+#if !MIN_VERSION_base(4,8,0)
   return a = trie (return a)
+#endif
   u >>= k  = trie (untrie u >>= untrie . k)
 
 -- | Identity trie
