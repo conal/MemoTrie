@@ -170,9 +170,17 @@ mup mem f = memo (mem . f)
 memo2 = mup memo
 memo3 = mup memo2
 
--- | Memoizing recursion. Use like `fix`.
+-- | Memoizing a recursive function. Use like `fix`.
 memoFix :: HasTrie a => ((a -> b) -> (a -> b)) -> (a -> b)
 memoFix h = fix (memo . h)
+
+-- | Memoizing a recursive binary function. Use like `fix`.
+memoFix2 :: (HasTrie a, HasTrie b) => ((a -> b -> c) -> (a -> b -> c)) -> (a -> b -> c)
+memoFix2 h = fix (memo2 . h)
+
+-- | Memoizing a recursive ternary function. Use like `fix`.
+memoFix3 :: (HasTrie a, HasTrie b, HasTrie c) => ((a -> b -> c -> d) -> (a -> b -> c -> d)) -> (a -> b -> c -> d)
+memoFix3 h = fix (memo3 . h)
 
 #if 0
 -- Equivalently,
@@ -189,7 +197,7 @@ memoFix h = f'
 #endif
 
 #if 0
--- Example
+-- Example using memoFix
 
 fibF :: (Integer -> Integer) -> (Integer -> Integer)
 fibF _ 0 = 1
@@ -203,6 +211,21 @@ fib' :: Integer -> Integer
 fib' = memoFix fibF
 
 -- Try fib 30 vs fib' 30
+
+-- Example using memoFix2
+
+chooseF :: (Integer -> Integer -> Integer) -> (Integer -> Integer -> Integer)
+chooseF _ 0 0 = 1
+chooseF _ 0 _ = 0
+chooseF f n k = f (n-1) (k-1) + f (n-1) k
+
+choose :: Integer -> Integer -> Integer
+choose = fix chooseF
+
+choose' :: Integer -> Integer -> Integer
+choose' = memoFix2 chooseF
+
+-- Try `choose 20 10` vs `choose' 20 10`
 #endif
 
 
