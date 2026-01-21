@@ -74,6 +74,7 @@ import Control.Arrow (first,(&&&))
 import Data.Monoid
 #endif
 import Data.Function (fix, on)
+import Data.Ratio (Ratio, (%), denominator, numerator)
 import GHC.Generics
 
 import Control.Newtype.Generics
@@ -694,6 +695,14 @@ instance (HasTrie (f x)) => HasTrie (M1 i t f x) where
   untrie (M1Trie t) = \(M1 a) -> untrie t a  
   enumerate (M1Trie t) = enum' M1 t 
 
+-- | wraps @(a, a)@
+instance (Integral a, HasTrie a) => HasTrie (Ratio a) where
+  newtype Ratio a :->: b = RatioTrie ((a, a) :->: b)
+  trie f = RatioTrie (trie (f . pairToRatio))
+  untrie (RatioTrie t) = untrie t . ratioToPair
+  enumerate (RatioTrie t) =
+    map (first pairToRatio) $ filter (isReducedPair . fst) $ enumerate t
+
 -- | the data type in a __reg__ular form. 
 -- "unlifted" generic representation. (i.e. is a unary type constructor). 
 type Reg a = Rep a () 
@@ -739,3 +748,15 @@ dropSum s = case s of
 liftSum :: Either (f a) (g a) -> (f :+: g) a 
 liftSum = either L1 R1
 {-# INLINEABLE liftSum #-}
+
+ratioToPair :: Ratio a -> (a, a)
+ratioToPair x = (numerator x, denominator x)
+{-# INLINEABLE ratioToPair #-}
+
+pairToRatio :: Integral a => (a, a) -> Ratio a
+pairToRatio = uncurry (%)
+{-# INLINEABLE pairToRatio #-}
+
+isReducedPair :: Integral a => (a, a) -> Bool
+isReducedPair (a, b) = gcd a b == 1 && b > 0
+{-# INLINEABLE isReducedPair #-}
