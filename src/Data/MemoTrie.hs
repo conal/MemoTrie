@@ -603,7 +603,6 @@ instance HasTrie a => Applicative ((:->:) a) where
   (<*>)  = inTrie2 (<*>)
 
 instance HasTrie a => Monad ((:->:) a) where
-  return a = trie (return a)
   u >>= k  = trie (untrie u >>= untrie . k)
 
 -- | Identity trie
